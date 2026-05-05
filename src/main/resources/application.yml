@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: tawseela-api
+  datasource:
+    url: jdbc:postgresql://localhost:55432/mydb
+    username: admin
+    password: admin
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+tawseela:
+  jwt:
+    secret: "dev-only-change-me-32chars-minimum!!"
+    access-expiration-ms: 3600000
+    refresh-expiration-ms: 604800000
+  otp:
+    ttl-minutes: 5
+  sms:
+    # false = OTP only in logs + otp_codes table (no Twilio call). Use this until from-number is set.
+    # true  = also send SMS; requires from-number OR messaging-service-sid (from Twilio console).
+    enabled: false
+    twilio:
+      account-sid: ${TWILIO_ACCOUNT_SID}
+      auth-token: ${TWILIO_AUTH_TOKEN}
+      from-number: ${TWILIO_PHONE_NUMBER:}
+      messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
+
+logging:
+  level:
+    com.tawseela: INFO

@@ -1,0 +1,15 @@
+# Production profile — activate with: SPRING_PROFILES_ACTIVE=prod
+# OTP is sent via Twilio Programmable SMS.
+
+tawseela:
+  jwt:
+    secret: ${JWT_SECRET}
+  otp:
+    ttl-minutes: 5
+  sms:
+    enabled: true
+    twilio:
+      account-sid: ${TWILIO_ACCOUNT_SID}
+      auth-token: ${TWILIO_AUTH_TOKEN}
+      from-number: ${TWILIO_PHONE_NUMBER:}
+      messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}

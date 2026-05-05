@@ -1,0 +1,57 @@
+### Tawseela API — auth smoke tests
+### Prereqs: Postgres localhost:55432, DB `mydb`, user `admin` — run sql/schema.sql first, app :8080
+###
+### OTP behaviour:
+###   sms.enabled=false (local)  → OTP printed in the Spring log: look for "OTP for +xx... → 123456"
+###   sms.enabled=true  → OTP also sent via Twilio SMS (needs TWILIO_* env vars + your Twilio phone number)
+
+@base = http://localhost:8080
+@phone = +213555000099
+
+### 1) Request OTP — OTP appears in the console log when SMS is disabled
+POST {{base}}/api/v1/auth/otp/request
+Content-Type: application/json
+
+{
+  "phone": "{{phone}}"
+}
+
+### 2) Verify OTP → register (new phone) OR login (existing) → returns JWTs
+###    Copy the 6-digit code from the log (or SMS) and paste it in "otp" below.
+###    "role" is only applied for NEW users: "customer" (default) or "driver". Cannot set "admin" here.
+###    "fullName", "email", "fcmToken" are all optional and stored/updated on every verify.
+POST {{base}}/api/v1/auth/otp/verify
+Content-Type: application/json
+
+{
+  "phone": "{{phone}}",
+  "otp": "PASTE_6_DIGIT_CODE_FROM_LOG",
+  "role": "customer",
+  "fullName": "Test User",
+  "email": "test.user@example.com",
+  "fcmToken": null
+}
+
+### Token notes:
+###   accessToken  → valid 1 hour  (use in Authorization header)
+###   refreshToken → valid 7 days  (use to get a fresh pair via /token/refresh)
+###   user.role    → customer | driver | admin
+###   user.email   → real email if provided, otherwise {digits}@phone.tawseela.local
+
+### @access = paste accessToken from step 2
+
+### 3) Current user
+GET {{base}}/api/v1/auth/me
+Authorization: Bearer REPLACE_WITH_ACCESS_TOKEN
+
+### 4) Refresh tokens
+POST {{base}}/api/v1/auth/token/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "REPLACE_WITH_REFRESH_TOKEN"
+}
+
+### 5) Logout (stateless — 204, client must discard both tokens)
+POST {{base}}/api/v1/auth/logout
+Authorization: Bearer REPLACE_WITH_ACCESS_TOKEN
