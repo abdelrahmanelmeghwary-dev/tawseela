@@ -1,5 +1,11 @@
 # Production profile — activate with: SPRING_PROFILES_ACTIVE=prod
 # OTP is sent via Twilio Programmable SMS.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
 
 tawseela:
   jwt:
