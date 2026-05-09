@@ -1,45 +1,213 @@
 package com.tawseela.config;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "tawseela")
-public record TawseelaProperties(Jwt jwt, Otp otp, Sms sms) {
+public class TawseelaProperties {
 
-    public TawseelaProperties {
-        if (sms == null) {
-            sms = new Sms(false, new Sms.Twilio("", "", "", ""));
-        } else if (sms.twilio() == null) {
-            sms = new Sms(sms.enabled(), new Sms.Twilio("", "", "", ""));
+    private Jwt jwt = new Jwt();
+    private Otp otp = new Otp();
+    private Sms sms = new Sms();
+    private AdminBootstrap adminBootstrap = new AdminBootstrap();
+
+    public Jwt getJwt() {
+        return jwt;
+    }
+
+    public void setJwt(Jwt jwt) {
+        this.jwt = jwt != null ? jwt : new Jwt();
+    }
+
+    public Otp getOtp() {
+        return otp;
+    }
+
+    public void setOtp(Otp otp) {
+        this.otp = otp != null ? otp : new Otp();
+    }
+
+    public Sms getSms() {
+        return sms;
+    }
+
+    public void setSms(Sms sms) {
+        this.sms = sms != null ? sms : new Sms();
+    }
+
+    public AdminBootstrap getAdminBootstrap() {
+        return adminBootstrap;
+    }
+
+    public void setAdminBootstrap(AdminBootstrap adminBootstrap) {
+        this.adminBootstrap = adminBootstrap != null ? adminBootstrap : new AdminBootstrap();
+    }
+
+    @PostConstruct
+    public void applySmsEnvOverride() {
+        if (sms.getTwilio() == null) {
+            sms.setTwilio(new Sms.Twilio());
         }
-        if (otp == null) {
-            otp = new Otp(5);
+        Sms.Twilio t = sms.getTwilio();
+        boolean twilioConfigured =
+                StringUtils.hasText(t.getAccountSid())
+                        && StringUtils.hasText(t.getAuthToken())
+                        && (StringUtils.hasText(t.getMessagingServiceSid()) || StringUtils.hasText(t.getFromNumber()));
+        String smsEnv = System.getenv("TAWSEELA_SMS_ENABLED");
+        boolean smsEnabled;
+        if (StringUtils.hasText(smsEnv)) {
+            smsEnabled = Boolean.parseBoolean(smsEnv.trim());
+        } else {
+            smsEnabled = sms.isEnabled() || twilioConfigured;
+        }
+        sms.setEnabled(smsEnabled);
+        if (sms.getTwilio() == null) {
+            sms.setTwilio(t);
         }
     }
 
-    public record Jwt(String secret, long accessExpirationMs, long refreshExpirationMs) {}
+    public static class Jwt {
+        private String secret = "";
+        private long accessExpirationMs = 900_000L;
+        private long refreshExpirationMs = 1_209_600_000L;
+        private boolean blacklistAccessTokenOnLogout = true;
 
-    /** OTP lifetime only — always a real random code. */
-    public record Otp(int ttlMinutes) {}
+        public String getSecret() {
+            return secret;
+        }
 
-    /**
-     * Twilio SMS. When {@code enabled=false} the OTP is still printed to the log for local testing.
-     * Set {@code enabled=true} with credentials (prefer env vars) to deliver OTP to the phone.
-     */
-    public record Sms(boolean enabled, Twilio twilio) {
+        public void setSecret(String secret) {
+            this.secret = secret != null ? secret : "";
+        }
 
-        /**
-         * Use either {@code fromNumber} (a number bought on Twilio) or {@code messagingServiceSid} (MG…),
-         * not your personal mobile as {@code From} — see Twilio error 21659.
-         */
-        public record Twilio(String accountSid, String authToken, String fromNumber, String messagingServiceSid) {
-            public Twilio {
-                accountSid = accountSid != null ? accountSid : "";
-                authToken = authToken != null ? authToken : "";
-                fromNumber = fromNumber != null ? fromNumber : "";
-                messagingServiceSid = messagingServiceSid != null ? messagingServiceSid : "";
+        public long getAccessExpirationMs() {
+            return accessExpirationMs;
+        }
+
+        public void setAccessExpirationMs(long accessExpirationMs) {
+            this.accessExpirationMs = accessExpirationMs;
+        }
+
+        public long getRefreshExpirationMs() {
+            return refreshExpirationMs;
+        }
+
+        public void setRefreshExpirationMs(long refreshExpirationMs) {
+            this.refreshExpirationMs = refreshExpirationMs;
+        }
+
+        public boolean isBlacklistAccessTokenOnLogout() {
+            return blacklistAccessTokenOnLogout;
+        }
+
+        public void setBlacklistAccessTokenOnLogout(boolean blacklistAccessTokenOnLogout) {
+            this.blacklistAccessTokenOnLogout = blacklistAccessTokenOnLogout;
+        }
+    }
+
+    public static class Otp {
+        private int ttlMinutes = 5;
+        private int maxAttempts = 5;
+
+        public int getTtlMinutes() {
+            return ttlMinutes;
+        }
+
+        public void setTtlMinutes(int ttlMinutes) {
+            this.ttlMinutes = ttlMinutes;
+        }
+
+        public int getMaxAttempts() {
+            return maxAttempts;
+        }
+
+        public void setMaxAttempts(int maxAttempts) {
+            this.maxAttempts = maxAttempts;
+        }
+    }
+
+    public static class Sms {
+        private boolean enabled;
+        private Twilio twilio = new Twilio();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public Twilio getTwilio() {
+            return twilio;
+        }
+
+        public void setTwilio(Twilio twilio) {
+            this.twilio = twilio != null ? twilio : new Twilio();
+        }
+
+        public static class Twilio {
+            private String accountSid = "";
+            private String authToken = "";
+            private String fromNumber = "";
+            private String messagingServiceSid = "";
+
+            public String getAccountSid() {
+                return accountSid;
+            }
+
+            public void setAccountSid(String accountSid) {
+                this.accountSid = accountSid != null ? accountSid : "";
+            }
+
+            public String getAuthToken() {
+                return authToken;
+            }
+
+            public void setAuthToken(String authToken) {
+                this.authToken = authToken != null ? authToken : "";
+            }
+
+            public String getFromNumber() {
+                return fromNumber;
+            }
+
+            public void setFromNumber(String fromNumber) {
+                this.fromNumber = fromNumber != null ? fromNumber : "";
+            }
+
+            public String getMessagingServiceSid() {
+                return messagingServiceSid;
+            }
+
+            public void setMessagingServiceSid(String messagingServiceSid) {
+                this.messagingServiceSid = messagingServiceSid != null ? messagingServiceSid : "";
             }
         }
     }
+
+    public static class AdminBootstrap {
+        private String mobile = "admin";
+        private String defaultPassword = "ChangeMe1!Strong";
+
+        public String getMobile() {
+            return mobile;
+        }
+
+        public void setMobile(String mobile) {
+            this.mobile = mobile != null ? mobile : "admin";
+        }
+
+        public String getDefaultPassword() {
+            return defaultPassword;
+        }
+
+        public void setDefaultPassword(String defaultPassword) {
+            this.defaultPassword = defaultPassword != null ? defaultPassword : "ChangeMe1!Strong";
+        }
+    }
 }
+

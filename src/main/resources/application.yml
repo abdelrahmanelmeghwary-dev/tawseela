@@ -1,37 +1,48 @@
 server:
-  port: 8080
+  port: 8099
 
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://trolley.proxy.rlwy.net:27153/railway?currentSchema=public}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:hbhSmQWhnkxjjUYsegvwbPDBfaOkzHdZ}
     driver-class-name: org.postgresql.Driver
+
+
+  flyway:
+    enabled: true
+    default-schema: public
+    schemas: public
+    locations: classpath:db/migration
+
   jpa:
     hibernate:
       ddl-auto: validate
-    open-in-view: false
     properties:
       hibernate:
         jdbc:
-          time_zone: UTC
+          lob:
+            non_contextual_creation: true
 
 tawseela:
   jwt:
-    secret: "dev-only-change-me-32chars-minimum!!"
-    access-expiration-ms: 3600000
-    refresh-expiration-ms: 604800000
+    secret: ${TAWSEELA_JWT_SECRET:dev-only-change-me-32chars-minimum!!}
+    access-expiration-ms: ${TAWSEELA_JWT_ACCESS_MS:900000}
+    refresh-expiration-ms: ${TAWSEELA_JWT_REFRESH_MS:1209600000}
   otp:
-    ttl-minutes: 5
+    ttl-minutes: ${TAWSEELA_OTP_TTL_MINUTES:5}
+    max-attempts: ${TAWSEELA_OTP_MAX_ATTEMPTS:5}
+    expire-scan-ms: 300000
   sms:
-    # false = OTP only in logs + otp_codes table (no Twilio call). Use this until from-number is set.
-    # true  = also send SMS; requires from-number OR messaging-service-sid (from Twilio console).
-    enabled: false
+    enabled: ${TAWSEELA_SMS_ENABLED:false}
     twilio:
-      account-sid: ${TWILIO_ACCOUNT_SID}
-      auth-token: ${TWILIO_AUTH_TOKEN}
+      account-sid: ${TWILIO_ACCOUNT_SID:}
+      auth-token: ${TWILIO_AUTH_TOKEN:}
       from-number: ${TWILIO_PHONE_NUMBER:}
       messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
+  admin-bootstrap:
+    mobile: ${TAWSEELA_ADMIN_MOBILE:admin}
+    default-password: ${TAWSEELA_ADMIN_DEFAULT_PASSWORD:ChangeMe1!Strong}
 
 logging:
   level:

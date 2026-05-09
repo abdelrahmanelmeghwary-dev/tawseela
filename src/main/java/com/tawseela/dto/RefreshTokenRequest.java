@@ -1,5 +1,14 @@
 package com.tawseela.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
 
-public record RefreshTokenRequest(@NotBlank String refreshToken) {}
+@Getter
+@Setter
+public class RefreshTokenRequest {
+
+    @NotBlank
+    private String refreshToken;
+}
+

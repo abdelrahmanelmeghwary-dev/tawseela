@@ -4,12 +4,8 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
-/**
- * On startup: if SMS is enabled, verifies Twilio credentials are all present (fails fast).
- * If SMS is disabled the app still works — the OTP is printed to the log (console) so you can
- * copy it locally.
- */
 @Component
 public class TawseelaAuthBootstrapValidator {
 
@@ -23,24 +19,24 @@ public class TawseelaAuthBootstrapValidator {
 
     @PostConstruct
     void validate() {
-        if (!props.sms().enabled()) {
+        byte[] secret = props.getJwt().getSecret().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (secret.length < 32) {
+            throw new IllegalStateException("tawseela.jwt.secret must be at least 32 bytes for HS256");
+        }
+        if (!props.getSms().isEnabled()) {
             log.warn(
-                    "SMS is disabled (tawseela.sms.enabled=false). "
-                            + "OTP codes will be printed to the application log — suitable for local testing only. "
-                            + "Enable Twilio SMS and set TWILIO_* env vars to deliver OTP to phones.");
+                    "SMS disabled: OTP codes are logged for local testing. Configure Twilio and TAWSEELA_SMS_ENABLED for production.");
             return;
         }
-        TawseelaProperties.Sms.Twilio t = props.sms().twilio();
-        if (t.accountSid().isBlank() || t.authToken().isBlank()) {
-            throw new IllegalStateException(
-                    "tawseela.sms.enabled=true but Twilio account-sid or auth-token is missing in tawseela.sms.twilio.");
+        TawseelaProperties.Sms.Twilio t = props.getSms().getTwilio();
+        if (!StringUtils.hasText(t.getAccountSid()) || !StringUtils.hasText(t.getAuthToken())) {
+            throw new IllegalStateException("SMS enabled but Twilio account-sid or auth-token is missing.");
         }
-        if (t.messagingServiceSid().isBlank() && t.fromNumber().isBlank()) {
-            log.warn(
-                    "Twilio: set from-number (a number you bought on Twilio) or messaging-service-sid (MG…), "
-                            + "otherwise SMS will fail (Twilio error 21659 if you use a non-Twilio number as From).");
+        if (!StringUtils.hasText(t.getMessagingServiceSid()) && !StringUtils.hasText(t.getFromNumber())) {
+            log.warn("Twilio: set from-number or messaging-service-sid or SMS delivery may fail.");
         } else {
-            log.info("Twilio SMS enabled — OTP will be sent to users' phones.");
+            log.info("Twilio SMS enabled.");
         }
     }
 }
+

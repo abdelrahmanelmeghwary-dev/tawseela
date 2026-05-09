@@ -1,26 +1,36 @@
 package com.tawseela.controller;
 
-import com.tawseela.dto.MeResponse;
-import com.tawseela.dto.OtpRequest;
-import com.tawseela.dto.OtpVerifyRequest;
+import com.tawseela.dto.ApiResponse;
+import com.tawseela.dto.AuthTokensResponse;
+import com.tawseela.dto.ForgotPasswordResetRequest;
+import com.tawseela.dto.ForgotPasswordSendOtpRequest;
+import com.tawseela.dto.ForgotPasswordVerifyOtpRequest;
+import com.tawseela.dto.ForgotPasswordVerifyResponse;
+import com.tawseela.dto.LoginRequest;
+import com.tawseela.dto.LogoutRequest;
+import com.tawseela.dto.OtpSendPublicRequest;
+import com.tawseela.dto.OtpVerifyApiResponse;
+import com.tawseela.dto.OtpVerifyPublicRequest;
 import com.tawseela.dto.RefreshTokenRequest;
-import com.tawseela.dto.TokenResponse;
-import com.tawseela.security.JwtPrincipal;
+import com.tawseela.dto.RegisterRequest;
+import com.tawseela.dto.RegisterVerifyRequest;
+import com.tawseela.dto.RegisterVerifyResponse;
+import com.tawseela.security.TawseelaUserDetails;
 import com.tawseela.service.AuthService;
+import java.util.UUID;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.Map;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     private final AuthService authService;
@@ -29,35 +39,68 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @PostMapping("/otp/request")
-    public Map<String, String> requestOtp(@Valid @RequestBody OtpRequest body) {
-        authService.requestOtp(body.phone());
-        return Map.of("message", "OTP sent successfully");
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Registration successful. OTP sent to your mobile.", null));
+    }
+
+    @PostMapping("/register/verify")
+    public ResponseEntity<ApiResponse<RegisterVerifyResponse>> verifyRegister(
+            @Valid @RequestBody RegisterVerifyRequest request) {
+        RegisterVerifyResponse body = authService.verifyRegistration(request);
+        return ResponseEntity.ok(ApiResponse.ok(body));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<AuthTokensResponse>> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.login(request)));
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<AuthTokensResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.refresh(request.getRefreshToken())));
+    }
+
+    @PostMapping("/otp/send")
+    public ResponseEntity<ApiResponse<Void>> otpSend(@Valid @RequestBody OtpSendPublicRequest request) {
+        authService.sendOtpPublic(request);
+        return ResponseEntity.ok(ApiResponse.ok("OTP sent", null));
     }
 
     @PostMapping("/otp/verify")
-    public TokenResponse verify(@Valid @RequestBody OtpVerifyRequest body) {
-        return authService.verifyOtp(body);
-    }
-
-    @PostMapping("/token/refresh")
-    public TokenResponse refresh(@Valid @RequestBody RefreshTokenRequest body) {
-        return authService.refresh(body);
+    public ResponseEntity<ApiResponse<OtpVerifyApiResponse>> otpVerify(@Valid @RequestBody OtpVerifyPublicRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.verifyOtpPublic(request)));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal JwtPrincipal principal) {
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-        }
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<ApiResponse<Void>> logout(
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal TawseelaUserDetails principal,
+            @Valid @RequestBody LogoutRequest request) {
+        UUID userId = principal.getUser().getId();
+        authService.logout(userId, request.getRefreshToken(), httpRequest.getHeader(HttpHeaders.AUTHORIZATION));
+        return ResponseEntity.ok(ApiResponse.ok("Logged out", null));
     }
 
-    @GetMapping("/me")
-    public MeResponse me(@AuthenticationPrincipal JwtPrincipal principal) {
-        if (principal == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-        }
-        return authService.me(principal);
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<ApiResponse<Void>> forgotSend(@Valid @RequestBody ForgotPasswordSendOtpRequest request) {
+        authService.forgotSendOtp(request);
+        return ResponseEntity.ok(ApiResponse.ok("OTP sent", null));
+    }
+
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<ApiResponse<ForgotPasswordVerifyResponse>> forgotVerify(
+            @Valid @RequestBody ForgotPasswordVerifyOtpRequest request) {
+        ForgotPasswordVerifyResponse res = authService.forgotVerifyOtp(request);
+        return ResponseEntity.ok(ApiResponse.ok(res));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> forgotReset(@Valid @RequestBody ForgotPasswordResetRequest request) {
+        authService.forgotReset(request);
+        return ResponseEntity.ok(ApiResponse.ok("Password updated", null));
     }
 }
+

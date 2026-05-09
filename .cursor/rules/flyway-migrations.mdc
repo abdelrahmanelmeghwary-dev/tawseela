@@ -1,0 +1,13 @@
+---
+description: Never rewrite applied Flyway migrations; add new versions instead.
+globs: src/main/resources/db/migration/**/*.sql
+alwaysApply: false
+---
+
+# Flyway migrations
+
+- **Never edit** migration files that have already been applied to any shared or production database (checksum in `flyway_schema_history` is tied to file contents).
+- If a migration was changed by mistake: **restore the exact original file** from version control (same bytes), **or** run `flyway repair` only after aligning file with what the DB actually ran, **or** leave the old script frozen and ship fixes in **new** scripts only: `V3__...sql`, `V4__...sql`, etc.
+- New schema or data changes belong in a **new** versioned file, never by mutating `V1__...`, `V2__...`, etc. that may already be executed.
+- Prefer additive, idempotent steps in new migrations (`IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`) when supporting databases that diverged slightly.
+- For local-only full rebuilds, use the `schema-reset` profile or Maven `flyway:clean` / `sql/reset_public.sql` as documented in `sql/README.txt` — that is not a substitute for editing old migration files on deployed databases.

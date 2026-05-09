@@ -1,188 +1,365 @@
 package com.tawseela.service;
 
 import com.tawseela.config.TawseelaProperties;
-import com.tawseela.domain.Profile;
-import com.tawseela.domain.Role;
-import com.tawseela.dto.MeResponse;
-import com.tawseela.dto.OtpVerifyRequest;
-import com.tawseela.dto.RefreshTokenRequest;
-import com.tawseela.dto.TokenResponse;
-import com.tawseela.dto.TokenResponse.UserSummary;
-import com.tawseela.repository.ProfileRepository;
-import com.tawseela.security.JwtPrincipal;
+import com.tawseela.dto.AuthTokensResponse;
+import com.tawseela.dto.ForgotPasswordResetRequest;
+import com.tawseela.dto.ForgotPasswordSendOtpRequest;
+import com.tawseela.dto.ForgotPasswordVerifyOtpRequest;
+import com.tawseela.dto.ForgotPasswordVerifyResponse;
+import com.tawseela.dto.LoginRequest;
+import com.tawseela.dto.OtpSendPublicRequest;
+import com.tawseela.dto.OtpVerifyApiResponse;
+import com.tawseela.dto.OtpVerifyPublicRequest;
+import com.tawseela.dto.RegisterRequest;
+import com.tawseela.dto.RegisterVerifyRequest;
+import com.tawseela.dto.RegisterVerifyResponse;
+import com.tawseela.entity.DriverProfile;
+import com.tawseela.entity.OtpEntity;
+import com.tawseela.entity.OtpPurpose;
+import com.tawseela.entity.OtpStatus;
+import com.tawseela.entity.RoleEntity;
+import com.tawseela.entity.SystemRole;
+import com.tawseela.entity.User;
+import com.tawseela.exception.BusinessException;
+import com.tawseela.repository.DriverProfileRepository;
+import com.tawseela.repository.OtpRepository;
+import com.tawseela.repository.RoleRepository;
+import com.tawseela.repository.UserRepository;
+import com.tawseela.security.AccessTokenBlacklist;
 import com.tawseela.security.JwtService;
-import com.tawseela.service.support.OtpStore;
 import com.tawseela.util.PhoneNormalizer;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.util.StringUtils;
 
 @Service
 public class AuthService {
 
-    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
-
-    private final TawseelaProperties props;
-    private final OtpStore otpStore;
-    private final ProfileService profileService;
-    private final ProfileRepository profileRepository;
-    private final JwtService jwtService;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final DriverProfileRepository driverProfileRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final OtpService otpService;
+    private final TokenService tokenService;
     private final TwilioSmsService twilioSmsService;
-    private final SecureRandom random = new SecureRandom();
+    private final TawseelaProperties tawseelaProperties;
+    private final AuthenticationManager authenticationManager;
+    private final OtpRepository otpRepository;
+    private final JwtService jwtService;
+    private final AccessTokenBlacklist accessTokenBlacklist;
 
     public AuthService(
-            TawseelaProperties props,
-            OtpStore otpStore,
-            ProfileService profileService,
-            ProfileRepository profileRepository,
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            DriverProfileRepository driverProfileRepository,
+            PasswordEncoder passwordEncoder,
+            OtpService otpService,
+            TokenService tokenService,
+            TwilioSmsService twilioSmsService,
+            TawseelaProperties tawseelaProperties,
+            AuthenticationManager authenticationManager,
+            OtpRepository otpRepository,
             JwtService jwtService,
-            TwilioSmsService twilioSmsService) {
-        this.props = props;
-        this.otpStore = otpStore;
-        this.profileService = profileService;
-        this.profileRepository = profileRepository;
-        this.jwtService = jwtService;
+            AccessTokenBlacklist accessTokenBlacklist) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.driverProfileRepository = driverProfileRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.otpService = otpService;
+        this.tokenService = tokenService;
         this.twilioSmsService = twilioSmsService;
+        this.tawseelaProperties = tawseelaProperties;
+        this.authenticationManager = authenticationManager;
+        this.otpRepository = otpRepository;
+        this.jwtService = jwtService;
+        this.accessTokenBlacklist = accessTokenBlacklist;
     }
 
-    public void requestOtp(String phone) {
-        String normalized = PhoneNormalizer.normalize(phone);
-        if (normalized.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid phone number");
+    @Transactional
+    public void register(RegisterRequest request) {
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Password and confirm password do not match");
         }
-        String code = String.format("%06d", random.nextInt(1_000_000));
-        Instant expires = Instant.now().plus(props.otp().ttlMinutes(), ChronoUnit.MINUTES);
-        otpStore.put(normalized, code, expires);
+        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+        if (mobile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
+        }
+        if (userRepository.existsByMobileNumber(mobile)) {
+            throw new BusinessException(
+                    HttpStatus.CONFLICT, "This mobile number is already registered. Please login instead.");
+        }
+        SystemRole requestedRole = SystemRole.valueOf(request.getRole());
+        if (requestedRole == SystemRole.ADMIN) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid registration role");
+        }
+        if (requestedRole == SystemRole.DRIVER) {
+            if (!StringUtils.hasText(request.getVehicleType())
+                    || !StringUtils.hasText(request.getVehicleNumber())
+                    || !StringUtils.hasText(request.getLicenseNumber())) {
+                throw new BusinessException(
+                        HttpStatus.BAD_REQUEST, "vehicleType, vehicleNumber, and licenseNumber are required for drivers");
+            }
+        }
 
-        // Always printed so you can verify locally without SMS configured.
-        log.info("OTP for {} → {} (expires in {} min)", normalized, code, props.otp().ttlMinutes());
+        User user = new User();
+        user.setFirstName(request.getFirstName().trim());
+        user.setLastName(request.getLastName().trim());
+        user.setMobileNumber(mobile);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setPhoneVerified(false);
+        if (requestedRole == SystemRole.CUSTOMER) {
+            user.setEnabled(true);
+        } else {
+            user.setEnabled(false);
+        }
 
-        if (props.sms().enabled()) {
-            twilioSmsService.sendOtp(normalized, code);
+        RoleEntity roleEntity = roleRepository
+                .findByName(requestedRole)
+                .orElseThrow(() -> new IllegalStateException("Role not seeded: " + requestedRole));
+        user.getRoles().add(roleEntity);
+        userRepository.save(user);
+
+        if (requestedRole == SystemRole.DRIVER) {
+            DriverProfile dp = new DriverProfile();
+            dp.setUser(user);
+            dp.setVehicleType(request.getVehicleType().trim());
+            dp.setVehicleNumber(request.getVehicleNumber().trim());
+            dp.setLicenseNumber(request.getLicenseNumber().trim());
+            dp.setApproved(false);
+            driverProfileRepository.save(dp);
+        }
+
+        String code = otpService.createAndPersistOtp(user, OtpPurpose.REGISTER);
+        sendSmsIfConfigured(mobile, code);
+    }
+
+    @Transactional
+    public RegisterVerifyResponse verifyRegistration(RegisterVerifyRequest request) {
+        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+        if (mobile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
+        }
+        User user = userRepository
+                .findByMobileNumberEagerRoles(mobile)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
+        otpService.verifyCode(user, OtpPurpose.REGISTER, request.getOtpCode());
+        user.setPhoneVerified(true);
+        userRepository.save(user);
+        user = userRepository.findByIdEagerRoles(user.getId()).orElse(user);
+        boolean isDriver = hasRole(user, SystemRole.DRIVER);
+        if (isDriver) {
+            return new RegisterVerifyResponse(
+                    null,
+                    "Phone verified. Your driver account is pending admin approval; you will be able to login after approval.");
+        }
+        return new RegisterVerifyResponse(tokenService.issueForUser(user), "Phone verified. Registration complete.");
+    }
+
+    @Transactional(readOnly = true)
+    public AuthTokensResponse login(LoginRequest request) {
+        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+        if (mobile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
+        }
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(mobile, request.getPassword()));
+        } catch (BadCredentialsException | DisabledException ex) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "Invalid credentials or account not ready");
+        }
+        User user = userRepository
+                .findByMobileNumberEagerRoles(mobile)
+                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+        return tokenService.issueForUser(user);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthTokensResponse refresh(String refreshToken) {
+        return tokenService.rotateRefresh(refreshToken);
+    }
+
+    @Transactional
+    public void logout(UUID userId, String refreshToken, String authorizationHeader) {
+        tokenService.revokeRefreshIfOwned(userId, refreshToken);
+        if (!tawseelaProperties.getJwt().isBlacklistAccessTokenOnLogout()) {
+            return;
+        }
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            return;
+        }
+        String access = authorizationHeader.substring(7).trim();
+        if (access.isEmpty()) {
+            return;
+        }
+        try {
+            JwtService.ParsedAccessToken parsed = jwtService.parseAccessToken(access);
+            if (parsed.getJti() != null && parsed.getExpiresAt() != null) {
+                accessTokenBlacklist.denyUntil(parsed.getJti(), parsed.getExpiresAt());
+            }
+        } catch (JwtException ignored) {
+            // ignore malformed access token; refresh is still revoked
         }
     }
 
     @Transactional
-    public TokenResponse verifyOtp(OtpVerifyRequest body) {
-        String normalized = PhoneNormalizer.normalize(body.phone());
-        if (normalized.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid phone number");
+    public void sendOtpPublic(OtpSendPublicRequest request) {
+        OtpPurpose purpose = OtpPurpose.valueOf(request.getPurpose().trim());
+        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+        if (mobile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
         }
-        if (!otpStore.verifyAndRemove(normalized, body.otp())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired OTP");
+        switch (purpose) {
+            case REGISTER:
+                User regUser = userRepository
+                        .findByMobileNumberEagerRoles(mobile)
+                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
+                if (regUser.isPhoneVerified()) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "Mobile number is already verified");
+                }
+                String regCode = otpService.createAndPersistOtp(regUser, OtpPurpose.REGISTER);
+                sendSmsIfConfigured(mobile, regCode);
+                break;
+            case FORGET_PASSWORD:
+                ForgotPasswordSendOtpRequest forgotReq = new ForgotPasswordSendOtpRequest();
+                forgotReq.setMobileNumber(request.getMobileNumber());
+                forgotSendOtp(forgotReq);
+                break;
+            case LOGIN:
+                User loginUser = userRepository
+                        .findByMobileNumberEagerRoles(mobile)
+                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
+                if (!isLoginOtpAllowed(loginUser)) {
+                    throw new BusinessException(
+                            HttpStatus.FORBIDDEN, "Account cannot receive a login OTP in its current state");
+                }
+                String loginCode = otpService.createAndPersistOtp(loginUser, OtpPurpose.LOGIN);
+                sendSmsIfConfigured(mobile, loginCode);
+                break;
         }
-        return profileService
-                .findByPhone(normalized)
-                .map(p -> {
-                    mergeRegistrationOnVerify(p, body, false);
-                    return buildTokenResponse(profileService.save(p));
-                })
-                .orElseGet(() -> {
-                    Profile p = newProfile(normalized, resolveSignupRole(body.role()));
-                    mergeRegistrationOnVerify(p, body, true);
-                    return buildTokenResponse(profileService.save(p));
-                });
     }
 
-    private static Role resolveSignupRole(String requested) {
-        if (requested == null || requested.isBlank()) {
-            return Role.customer;
+    @Transactional
+    public OtpVerifyApiResponse verifyOtpPublic(OtpVerifyPublicRequest request) {
+        OtpPurpose purpose = OtpPurpose.valueOf(request.getPurpose().trim());
+        OtpVerifyApiResponse body = new OtpVerifyApiResponse();
+        body.setPurpose(request.getPurpose().trim());
+        switch (purpose) {
+            case REGISTER:
+                RegisterVerifyRequest rv = new RegisterVerifyRequest();
+                rv.setMobileNumber(request.getMobileNumber());
+                rv.setOtpCode(request.getOtpCode());
+                body.setRegistration(verifyRegistration(rv));
+                break;
+            case FORGET_PASSWORD:
+                ForgotPasswordVerifyOtpRequest fv = new ForgotPasswordVerifyOtpRequest();
+                fv.setMobileNumber(request.getMobileNumber());
+                fv.setOtpCode(request.getOtpCode());
+                body.setForgotPassword(forgotVerifyOtp(fv));
+                break;
+            case LOGIN:
+                String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+                if (mobile.isEmpty()) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
+                }
+                User loginUser = userRepository
+                        .findByMobileNumberEagerRoles(mobile)
+                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
+                otpService.verifyCode(loginUser, OtpPurpose.LOGIN, request.getOtpCode());
+                body.setLoginOtpVerified(Boolean.TRUE);
+                break;
         }
-        String r = requested.trim().toLowerCase();
+        return body;
+    }
+
+    private boolean isLoginOtpAllowed(User user) {
+        if (!user.isPhoneVerified() || !user.isEnabled()) {
+            return false;
+        }
+        if (hasRole(user, SystemRole.DRIVER)) {
+            return driverProfileRepository
+                    .findByUser_Id(user.getId())
+                    .map(DriverProfile::isApproved)
+                    .orElse(false);
+        }
+        return true;
+    }
+
+    @Transactional
+    public void forgotSendOtp(ForgotPasswordSendOtpRequest request) {
+        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+        if (mobile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
+        }
+        User user = userRepository
+                .findByMobileNumberEagerRoles(mobile)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
+        String code = otpService.createAndPersistOtp(user, OtpPurpose.FORGET_PASSWORD);
+        sendSmsIfConfigured(mobile, code);
+    }
+
+    @Transactional
+    public ForgotPasswordVerifyResponse forgotVerifyOtp(ForgotPasswordVerifyOtpRequest request) {
+        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+        if (mobile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
+        }
+        User user = userRepository
+                .findByMobileNumberEagerRoles(mobile)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
+        OtpEntity otp = otpService.verifyCodeReturningEntity(user, OtpPurpose.FORGET_PASSWORD, request.getOtpCode());
+        return new ForgotPasswordVerifyResponse("OTP verified", otp.getId().toString());
+    }
+
+    @Transactional
+    public void forgotReset(ForgotPasswordResetRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Password and confirm password do not match");
+        }
+        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
+        if (mobile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
+        }
+        User user = userRepository
+                .findByMobileNumberEagerRoles(mobile)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
+        UUID resetId;
         try {
-            Role role = Role.valueOf(r);
-            if (role == Role.admin) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "admin role cannot be set via OTP signup");
+            resetId = UUID.fromString(request.getResetToken());
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid reset token");
+        }
+        OtpEntity otp = otpRepository
+                .findByIdAndUser_Id(resetId, user.getId())
+                .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "Invalid reset token"));
+        if (otp.getPurpose() != OtpPurpose.FORGET_PASSWORD || otp.getStatus() != OtpStatus.VERIFIED) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "Reset token is not valid for this step");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        otp.setStatus(OtpStatus.EXPIRED);
+        otpRepository.save(otp);
+    }
+
+    private void sendSmsIfConfigured(String mobile, String code) {
+        if (tawseelaProperties.getSms().isEnabled()) {
+            twilioSmsService.sendOtp(mobile, code);
+        }
+    }
+
+    private static boolean hasRole(User user, SystemRole role) {
+        for (RoleEntity r : user.getRoles()) {
+            if (r.getName() == role) {
+                return true;
             }
-            return role;
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role: use customer or driver");
         }
-    }
-
-    private static Profile newProfile(String normalizedPhone, Role role) {
-        Profile p = new Profile();
-        p.setPhone(normalizedPhone);
-        p.setRole(role);
-        return p;
-    }
-
-    private static String syntheticEmailForPhone(String normalizedPhone) {
-        return normalizedPhone.replace("+", "") + "@phone.tawseela.local";
-    }
-
-    private void mergeRegistrationOnVerify(Profile p, OtpVerifyRequest body, boolean isNew) {
-        if (body.fullName() != null && !body.fullName().isBlank()) {
-            p.setFullName(body.fullName().trim());
-        }
-        if (body.fcmToken() != null && !body.fcmToken().isBlank()) {
-            p.setFcmToken(body.fcmToken().trim());
-        }
-        if (body.email() != null && !body.email().isBlank()) {
-            setEmailIfAvailable(p, body.email().trim().toLowerCase());
-        } else if (isNew && (p.getEmail() == null || p.getEmail().isBlank())) {
-            p.setEmail(syntheticEmailForPhone(p.getPhone()));
-        }
-    }
-
-    private void setEmailIfAvailable(Profile p, String normalizedEmail) {
-        profileRepository
-                .findByEmailIgnoreCase(normalizedEmail)
-                .filter(other -> !other.getId().equals(p.getId()))
-                .ifPresent(other -> {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
-                });
-        p.setEmail(normalizedEmail);
-    }
-
-    @Transactional(readOnly = true)
-    public TokenResponse refresh(RefreshTokenRequest body) {
-        UUID userId;
-        try {
-            userId = jwtService.parseRefreshTokenUserId(body.refreshToken());
-        } catch (ExpiredJwtException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
-        } catch (JwtException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
-        }
-        Profile profile = profileService
-                .findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
-        return buildTokenResponse(profile);
-    }
-
-    @Transactional(readOnly = true)
-    public MeResponse me(JwtPrincipal principal) {
-        Profile p = profileService
-                .findById(principal.id())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
-        return new MeResponse(
-                p.getId(),
-                p.getPhone(),
-                p.getEmail(),
-                p.getFullName(),
-                p.getRole().name(),
-                p.getFcmToken(),
-                p.getCreatedAt(),
-                p.getUpdatedAt());
-    }
-
-    private TokenResponse buildTokenResponse(Profile p) {
-        long expiresInSeconds = props.jwt().accessExpirationMs() / 1000L;
-        return new TokenResponse(
-                jwtService.createAccessToken(p),
-                jwtService.createRefreshToken(p.getId()),
-                "Bearer",
-                expiresInSeconds,
-                new UserSummary(p.getId(), p.getPhone(), p.getEmail(), p.getFullName(), p.getRole().name()));
+        return false;
     }
 }

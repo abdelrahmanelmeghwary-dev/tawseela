@@ -1,15 +1,15 @@
 package com.tawseela.security;
 
 import com.tawseela.config.TawseelaProperties;
-import com.tawseela.domain.Profile;
-import com.tawseela.domain.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.stereotype.Service;
@@ -17,46 +17,28 @@ import org.springframework.stereotype.Service;
 @Service
 public class JwtService {
 
-    private static final String CLAIM_PHONE = "phone";
-    private static final String CLAIM_ROLE = "role";
-    private static final String CLAIM_TYP = "typ";
-    private static final String TYP_ACCESS = "access";
-    private static final String TYP_REFRESH = "refresh";
+    private static final String CLAIM_MOBILE = "mobileNumber";
+    private static final String CLAIM_ROLES = "roles";
 
     private final SecretKey key;
     private final long accessExpirationMs;
-    private final long refreshExpirationMs;
 
     public JwtService(TawseelaProperties props) {
-        byte[] secretBytes = props.jwt().secret().getBytes(StandardCharsets.UTF_8);
-        if (secretBytes.length < 32) {
-            throw new IllegalStateException("tawseela.jwt.secret must be at least 32 bytes (256 bits) for HS256");
-        }
+        byte[] secretBytes = props.getJwt().getSecret().getBytes(StandardCharsets.UTF_8);
         this.key = Keys.hmacShaKeyFor(secretBytes);
-        this.accessExpirationMs = props.jwt().accessExpirationMs();
-        this.refreshExpirationMs = props.jwt().refreshExpirationMs();
+        this.accessExpirationMs = props.getJwt().getAccessExpirationMs();
     }
 
-    public String createAccessToken(Profile profile) {
+    public String createAccessToken(UUID userId, String mobileNumber, List<String> roles) {
         Instant now = Instant.now();
+        String jti = UUID.randomUUID().toString();
         return Jwts.builder()
-                .subject(profile.getId().toString())
-                .claim(CLAIM_PHONE, profile.getPhone())
-                .claim(CLAIM_ROLE, profile.getRole().name())
-                .claim(CLAIM_TYP, TYP_ACCESS)
+                .id(jti)
+                .subject(userId.toString())
+                .claim(CLAIM_MOBILE, mobileNumber)
+                .claim(CLAIM_ROLES, roles)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(accessExpirationMs)))
-                .signWith(key)
-                .compact();
-    }
-
-    public String createRefreshToken(UUID userId) {
-        Instant now = Instant.now();
-        return Jwts.builder()
-                .subject(userId.toString())
-                .claim(CLAIM_TYP, TYP_REFRESH)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(refreshExpirationMs)))
                 .signWith(key)
                 .compact();
     }
@@ -67,26 +49,58 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        if (!TYP_ACCESS.equals(claims.get(CLAIM_TYP, String.class))) {
-            throw new JwtException("Not an access token");
+        UUID userId = UUID.fromString(claims.getSubject());
+        String mobile = claims.get(CLAIM_MOBILE, String.class);
+        List<String> roles = new ArrayList<>();
+        Object rawRoles = claims.get(CLAIM_ROLES);
+        if (rawRoles instanceof List<?> list) {
+            for (Object o : list) {
+                if (o != null) {
+                    roles.add(String.valueOf(o));
+                }
+            }
         }
-        UUID id = UUID.fromString(claims.getSubject());
-        String phone = claims.get(CLAIM_PHONE, String.class);
-        Role role = Role.valueOf(claims.get(CLAIM_ROLE, String.class));
-        return new ParsedAccessToken(id, phone, role);
+        String jti = claims.getId();
+        Instant expiresAt = claims.getExpiration() != null
+                ? Instant.ofEpochMilli(claims.getExpiration().getTime())
+                : null;
+        return new ParsedAccessToken(userId, mobile, roles, jti, expiresAt);
     }
 
-    public UUID parseRefreshTokenUserId(String token) throws JwtException {
-        Claims claims = Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-        if (!TYP_REFRESH.equals(claims.get(CLAIM_TYP, String.class))) {
-            throw new JwtException("Not a refresh token");
-        }
-        return UUID.fromString(claims.getSubject());
-    }
+    public static final class ParsedAccessToken {
+        private final UUID userId;
+        private final String mobileNumber;
+        private final List<String> roles;
+        private final String jti;
+        private final Instant expiresAt;
 
-    public record ParsedAccessToken(UUID userId, String phone, Role role) {}
+        public ParsedAccessToken(
+                UUID userId, String mobileNumber, List<String> roles, String jti, Instant expiresAt) {
+            this.userId = userId;
+            this.mobileNumber = mobileNumber;
+            this.roles = roles;
+            this.jti = jti;
+            this.expiresAt = expiresAt;
+        }
+
+        public UUID getUserId() {
+            return userId;
+        }
+
+        public String getMobileNumber() {
+            return mobileNumber;
+        }
+
+        public List<String> getRoles() {
+            return roles;
+        }
+
+        public String getJti() {
+            return jti;
+        }
+
+        public Instant getExpiresAt() {
+            return expiresAt;
+        }
+    }
 }

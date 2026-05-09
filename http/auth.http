@@ -1,57 +1,112 @@
-### Tawseela API — auth smoke tests
-### Prereqs: Postgres localhost:55432, DB `mydb`, user `admin` — run sql/schema.sql first, app :8080
-###
-### OTP behaviour:
-###   sms.enabled=false (local)  → OTP printed in the Spring log: look for "OTP for +xx... → 123456"
-###   sms.enabled=true  → OTP also sent via Twilio SMS (needs TWILIO_* env vars + your Twilio phone number)
+### Tawseela API — auth examples (Spring Boot 2.7, Java 8)
+### Default server: http://localhost:8099
+### With SMS disabled, OTP codes are logged: "OTP ... for user ... purpose REGISTER"
 
-@base = http://localhost:8080
-@phone = +213555000099
+@base = http://localhost:8099
 
-### 1) Request OTP — OTP appears in the console log when SMS is disabled
-POST {{base}}/api/v1/auth/otp/request
+### Resend / issue OTP by purpose (REGISTER = not yet phone-verified, FORGET_PASSWORD, LOGIN = MFA-style check)
+POST {{base}}/api/auth/otp/send
 Content-Type: application/json
 
 {
-  "phone": "{{phone}}"
+  "mobileNumber": "+15550001111",
+  "purpose": "REGISTER"
 }
 
-### 2) Verify OTP → register (new phone) OR login (existing) → returns JWTs
-###    Copy the 6-digit code from the log (or SMS) and paste it in "otp" below.
-###    "role" is only applied for NEW users: "customer" (default) or "driver". Cannot set "admin" here.
-###    "fullName", "email", "fcmToken" are all optional and stored/updated on every verify.
-POST {{base}}/api/v1/auth/otp/verify
+### Verify OTP by purpose (REGISTER mirrors register/verify; FORGET_PASSWORD returns resetToken; LOGIN sets loginOtpVerified)
+POST {{base}}/api/auth/otp/verify
 Content-Type: application/json
 
 {
-  "phone": "{{phone}}",
-  "otp": "PASTE_6_DIGIT_CODE_FROM_LOG",
-  "role": "customer",
-  "fullName": "Test User",
-  "email": "test.user@example.com",
-  "fcmToken": null
+  "mobileNumber": "+15550001111",
+  "otpCode": "000000",
+  "purpose": "REGISTER"
 }
 
-### Token notes:
-###   accessToken  → valid 1 hour  (use in Authorization header)
-###   refreshToken → valid 7 days  (use to get a fresh pair via /token/refresh)
-###   user.role    → customer | driver | admin
-###   user.email   → real email if provided, otherwise {digits}@phone.tawseela.local
-
-### @access = paste accessToken from step 2
-
-### 3) Current user
-GET {{base}}/api/v1/auth/me
-Authorization: Bearer REPLACE_WITH_ACCESS_TOKEN
-
-### 4) Refresh tokens
-POST {{base}}/api/v1/auth/token/refresh
+### Register (CUSTOMER or DRIVER). DRIVER requires vehicleType, vehicleNumber, licenseNumber.
+POST {{base}}/api/auth/register
 Content-Type: application/json
 
 {
-  "refreshToken": "REPLACE_WITH_REFRESH_TOKEN"
+  "firstName": "Ada",
+  "lastName": "Lovelace",
+  "mobileNumber": "+15550001111",
+  "password": "Str0ng!Pass",
+  "confirmPassword": "Str0ng!Pass",
+  "role": "CUSTOMER"
 }
 
-### 5) Logout (stateless — 204, client must discard both tokens)
-POST {{base}}/api/v1/auth/logout
-Authorization: Bearer REPLACE_WITH_ACCESS_TOKEN
+### Verify registration OTP (copy 6-digit code from logs if SMS off)
+POST {{base}}/api/auth/register/verify
+Content-Type: application/json
+
+{
+  "mobileNumber": "+15550001111",
+  "otpCode": "000000"
+}
+
+### Login
+POST {{base}}/api/auth/login
+Content-Type: application/json
+
+{
+  "mobileNumber": "+15550001111",
+  "password": "Str0ng!Pass"
+}
+
+### Refresh token
+POST {{base}}/api/auth/refresh-token
+Content-Type: application/json
+
+{
+  "refreshToken": "PASTE_REFRESH_TOKEN"
+}
+
+### Logout (requires Bearer access token + body refresh token)
+POST {{base}}/api/auth/logout
+Authorization: Bearer PASTE_ACCESS_TOKEN
+Content-Type: application/json
+
+{
+  "refreshToken": "PASTE_REFRESH_TOKEN"
+}
+
+### Forgot password — send OTP
+POST {{base}}/api/auth/forgot-password/send-otp
+Content-Type: application/json
+
+{
+  "mobileNumber": "+15550001111"
+}
+
+### Forgot password — verify OTP (returns resetToken)
+POST {{base}}/api/auth/forgot-password/verify-otp
+Content-Type: application/json
+
+{
+  "mobileNumber": "+15550001111",
+  "otpCode": "000000"
+}
+
+### Forgot password — reset (use resetToken from previous step)
+POST {{base}}/api/auth/forgot-password/reset
+Content-Type: application/json
+
+{
+  "mobileNumber": "+15550001111",
+  "resetToken": "PASTE_RESET_TOKEN_UUID",
+  "newPassword": "N3w!Str0ng",
+  "confirmPassword": "N3w!Str0ng"
+}
+
+### Customer area
+GET {{base}}/api/customer/me
+Authorization: Bearer PASTE_ACCESS_TOKEN
+
+### Driver area
+GET {{base}}/api/driver/me
+Authorization: Bearer PASTE_ACCESS_TOKEN
+
+### Admin (default mobile admin — set TAWSEELA_ADMIN_DEFAULT_PASSWORD in prod)
+GET {{base}}/api/admin/users
+Authorization: Bearer PASTE_ADMIN_ACCESS_TOKEN

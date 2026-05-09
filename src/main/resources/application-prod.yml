@@ -1,6 +1,7 @@
 # Production profile — activate with: SPRING_PROFILES_ACTIVE=prod
-# OTP is sent via Twilio Programmable SMS.
 spring:
+  flyway:
+    clean-disabled: true
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
@@ -9,13 +10,20 @@ spring:
 
 tawseela:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${TAWSEELA_JWT_SECRET}
+    access-expiration-ms: ${TAWSEELA_JWT_ACCESS_MS:900000}
+    refresh-expiration-ms: ${TAWSEELA_JWT_REFRESH_MS:1209600000}
+    blacklist-access-token-on-logout: ${TAWSEELA_JWT_BLACKLIST_ACCESS_ON_LOGOUT:true}
   otp:
-    ttl-minutes: 5
+    ttl-minutes: ${TAWSEELA_OTP_TTL_MINUTES:5}
+    max-attempts: ${TAWSEELA_OTP_MAX_ATTEMPTS:5}
   sms:
-    enabled: true
+    enabled: ${TAWSEELA_SMS_ENABLED:true}
     twilio:
       account-sid: ${TWILIO_ACCOUNT_SID}
       auth-token: ${TWILIO_AUTH_TOKEN}
       from-number: ${TWILIO_PHONE_NUMBER:}
       messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}
+  admin-bootstrap:
+    mobile: ${TAWSEELA_ADMIN_MOBILE:admin}
+    default-password: ${TAWSEELA_ADMIN_DEFAULT_PASSWORD:}

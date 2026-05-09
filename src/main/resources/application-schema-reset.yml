@@ -1,0 +1,6 @@
+# Destroys all data in Flyway schemas, then runs migrations from scratch.
+# Start once with: --spring.profiles.active=schema-reset
+# Not combined with profile "prod" (see FlywaySchemaResetConfiguration).
+spring:
+  flyway:
+    clean-disabled: false
