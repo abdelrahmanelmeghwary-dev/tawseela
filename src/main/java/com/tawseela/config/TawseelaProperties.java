@@ -51,22 +51,15 @@ public class TawseelaProperties {
         if (sms.getTwilio() == null) {
             sms.setTwilio(new Sms.Twilio());
         }
-        Sms.Twilio t = sms.getTwilio();
-        boolean twilioConfigured =
-                StringUtils.hasText(t.getAccountSid())
-                        && StringUtils.hasText(t.getAuthToken())
-                        && (StringUtils.hasText(t.getMessagingServiceSid()) || StringUtils.hasText(t.getFromNumber()));
         String smsEnv = System.getenv("TAWSEELA_SMS_ENABLED");
-        boolean smsEnabled;
         if (StringUtils.hasText(smsEnv)) {
-            smsEnabled = Boolean.parseBoolean(smsEnv.trim());
-        } else {
-            smsEnabled = sms.isEnabled() || twilioConfigured;
+            sms.setEnabled(Boolean.parseBoolean(smsEnv.trim()));
         }
-        sms.setEnabled(smsEnabled);
-        if (sms.getTwilio() == null) {
-            sms.setTwilio(t);
-        }
+    }
+
+    /** True when a fixed OTP is configured; Twilio must not be called in this mode. */
+    public boolean isFixedOtpActive() {
+        return StringUtils.hasText(otp.getFixedCode());
     }
 
     public static class Jwt {

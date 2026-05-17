@@ -17,8 +17,9 @@ tawseela:
   otp:
     ttl-minutes: ${TAWSEELA_OTP_TTL_MINUTES:5}
     max-attempts: ${TAWSEELA_OTP_MAX_ATTEMPTS:5}
+    fixed-code: ${TAWSEELA_OTP_FIXED_CODE:1234}
   sms:
-    enabled: ${TAWSEELA_SMS_ENABLED:true}
+    enabled: ${TAWSEELA_SMS_ENABLED:false}
     twilio:
       account-sid: ${TWILIO_ACCOUNT_SID}
       auth-token: ${TWILIO_AUTH_TOKEN}

@@ -23,9 +23,14 @@ public class TawseelaAuthBootstrapValidator {
         if (secret.length < 32) {
             throw new IllegalStateException("tawseela.jwt.secret must be at least 32 bytes for HS256");
         }
+        if (props.isFixedOtpActive()) {
+            log.warn(
+                    "Fixed OTP mode (tawseela.otp.fixed-code): Twilio is skipped; clear fixed-code and set TAWSEELA_SMS_ENABLED=true for real SMS.");
+            return;
+        }
         if (!props.getSms().isEnabled()) {
             log.warn(
-                    "SMS disabled: OTP codes are logged for local testing. Configure Twilio and TAWSEELA_SMS_ENABLED for production.");
+                    "SMS disabled: OTP codes are logged. Set TAWSEELA_SMS_ENABLED=true and configure Twilio to send SMS.");
             return;
         }
         TawseelaProperties.Sms.Twilio t = props.getSms().getTwilio();

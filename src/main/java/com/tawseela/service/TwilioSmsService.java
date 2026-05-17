@@ -34,9 +34,8 @@ public class TwilioSmsService {
     }
 
     public void sendOtp(String e164Phone, String code) {
-        if (!props.getSms().isEnabled()) {
-            throw new BusinessException(
-                    HttpStatus.SERVICE_UNAVAILABLE, "SMS delivery is disabled (configure Twilio and enable SMS)");
+        if (props.isFixedOtpActive() || !props.getSms().isEnabled()) {
+            return;
         }
         TawseelaProperties.Sms.Twilio t = props.getSms().getTwilio();
         if (!org.springframework.util.StringUtils.hasText(t.getAccountSid())

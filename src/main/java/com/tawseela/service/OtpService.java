@@ -44,8 +44,8 @@ public class OtpService {
         otp.setAttempts(0);
         otp.setExpiresAt(Instant.now().plus(props.getOtp().getTtlMinutes(), ChronoUnit.MINUTES));
         otpRepository.save(otp);
-        if (!props.getSms().isEnabled()) {
-            log.warn("OTP (SMS disabled) for {} purpose {}: {}", user.getMobileNumber(), purpose, code);
+        if (!props.getSms().isEnabled() || props.isFixedOtpActive()) {
+            log.warn("OTP for {} purpose {}: {} (use this code; SMS not sent)", user.getMobileNumber(), purpose, code);
         } else {
             log.info("OTP issued for {} purpose {}", user.getMobileNumber(), purpose);
         }

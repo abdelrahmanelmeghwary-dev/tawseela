@@ -349,9 +349,10 @@ public class AuthService {
     }
 
     private void sendSmsIfConfigured(String mobile, String code) {
-        if (tawseelaProperties.getSms().isEnabled()) {
-            twilioSmsService.sendOtp(mobile, code);
+        if (tawseelaProperties.isFixedOtpActive() || !tawseelaProperties.getSms().isEnabled()) {
+            return;
         }
+        twilioSmsService.sendOtp(mobile, code);
     }
 
     private static boolean hasRole(User user, SystemRole role) {
