@@ -32,6 +32,7 @@ tawseela:
   otp:
     ttl-minutes: ${TAWSEELA_OTP_TTL_MINUTES:5}
     max-attempts: ${TAWSEELA_OTP_MAX_ATTEMPTS:5}
+    fixed-code: ${TAWSEELA_OTP_FIXED_CODE:1234}
     expire-scan-ms: 300000
   sms:
     enabled: ${TAWSEELA_SMS_ENABLED:false}

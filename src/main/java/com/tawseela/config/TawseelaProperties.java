@@ -111,6 +111,16 @@ public class TawseelaProperties {
     public static class Otp {
         private int ttlMinutes = 5;
         private int maxAttempts = 5;
+        /** When set, every issued OTP uses this value instead of a random code. Clear for production. */
+        private String fixedCode = "1234";
+
+        public String getFixedCode() {
+            return fixedCode;
+        }
+
+        public void setFixedCode(String fixedCode) {
+            this.fixedCode = fixedCode;
+        }
 
         public int getTtlMinutes() {
             return ttlMinutes;

@@ -1,0 +1,475 @@
+{
+  "info": {
+    "_postman_id": "tawseela-api-full-v2",
+    "name": "Tawseela API — full (Railway)",
+    "description": "Production base: `https://tawseela-production.up.railway.app`\n\n**Suggested order**\n1. **01 — Register (Customer)** → then **03 — Login**\n2. **02 — Register (Driver)** → verify → admin approves in **08 — Admin**\n3. **05 — Forgot password** (alternate path)\n4. **04 — OTP (public)** optional resend/verify by purpose\n5. **06 / 07 / 08** — use `accessToken` from login (role must match)\n\n**OTP:** fixed `1234` while `tawseela.otp.fixed-code` is set.\n\n**Variables:** set `mobileNumber` / `driverMobileNumber`; after Login, `accessToken` and `refreshToken` are saved automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://tawseela-production.up.railway.app" },
+    { "key": "mobileNumber", "value": "+15550001111" },
+    { "key": "driverMobileNumber", "value": "+15550002222" },
+    { "key": "adminMobile", "value": "admin" },
+    { "key": "adminPassword", "value": "ChangeMe1!Strong" },
+    { "key": "password", "value": "Str0ng!Pass" },
+    { "key": "otpCode", "value": "1234" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "resetToken", "value": "" },
+    { "key": "driverProfileId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 — Register (Customer)",
+      "item": [
+        {
+          "name": "1. Register — CUSTOMER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Ada\",\n  \"lastName\": \"Customer\",\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"password\": \"{{password}}\",\n  \"confirmPassword\": \"{{password}}\",\n  \"role\": \"CUSTOMER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Creates user; sends OTP. Customer is enabled after verify."
+          }
+        },
+        {
+          "name": "2. Register verify — CUSTOMER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.tokens) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.tokens.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register/verify",
+            "description": "Returns tokens in `data.tokens`. Saves access/refresh to collection variables."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Register (Driver)",
+      "item": [
+        {
+          "name": "1. Register — DRIVER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Bob\",\n  \"lastName\": \"Driver\",\n  \"mobileNumber\": \"{{driverMobileNumber}}\",\n  \"password\": \"{{password}}\",\n  \"confirmPassword\": \"{{password}}\",\n  \"role\": \"DRIVER\",\n  \"vehicleType\": \"Sedan\",\n  \"vehicleNumber\": \"ABC-1234\",\n  \"licenseNumber\": \"DL-987654\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Driver account disabled until admin approves after OTP verify."
+          }
+        },
+        {
+          "name": "2. Register verify — DRIVER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.tokens) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.tokens.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{driverMobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register/verify"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Login & session",
+      "item": [
+        {
+          "name": "1. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Change `mobileNumber` to `{{driverMobileNumber}}` or `{{adminMobile}}` for other roles."
+          }
+        },
+        {
+          "name": "2. Login — admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{adminMobile}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "3. Refresh token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/refresh-token"
+          }
+        },
+        {
+          "name": "4. Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/logout",
+            "description": "Requires Bearer access token + refresh token in body."
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — OTP (public)",
+      "item": [
+        {
+          "name": "OTP send — REGISTER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"purpose\": \"REGISTER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/otp/send"
+          }
+        },
+        {
+          "name": "OTP send — LOGIN",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"purpose\": \"LOGIN\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/otp/send"
+          }
+        },
+        {
+          "name": "OTP send — FORGET_PASSWORD",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"purpose\": \"FORGET_PASSWORD\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/otp/send"
+          }
+        },
+        {
+          "name": "OTP verify — REGISTER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.registration && res.data.registration.tokens) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.registration.tokens.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.registration.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\",\n  \"purpose\": \"REGISTER\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/otp/verify"
+          }
+        },
+        {
+          "name": "OTP verify — LOGIN",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\",\n  \"purpose\": \"LOGIN\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/otp/verify",
+            "description": "Sets `data.loginOtpVerified` when successful."
+          }
+        },
+        {
+          "name": "OTP verify — FORGET_PASSWORD",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.forgotPassword && res.data.forgotPassword.resetToken) {",
+                  "  pm.collectionVariables.set('resetToken', res.data.forgotPassword.resetToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\",\n  \"purpose\": \"FORGET_PASSWORD\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/otp/verify"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — Forgot password",
+      "item": [
+        {
+          "name": "1. Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/forgot-password/send-otp"
+          }
+        },
+        {
+          "name": "2. Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.resetToken) {",
+                  "  pm.collectionVariables.set('resetToken', res.data.resetToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/forgot-password/verify-otp"
+          }
+        },
+        {
+          "name": "3. Reset password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"resetToken\": \"{{resetToken}}\",\n  \"newPassword\": \"N3w!Str0ng\",\n  \"confirmPassword\": \"N3w!Str0ng\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/forgot-password/reset"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Customer (role CUSTOMER)",
+      "item": [
+        {
+          "name": "GET /api/customer/me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/customer/me",
+            "description": "Run **03 — Login** with customer mobile first."
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 — Driver (role DRIVER)",
+      "item": [
+        {
+          "name": "GET /api/driver/me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/driver/me"
+          }
+        },
+        {
+          "name": "POST /api/driver/profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleType\": \"SUV\",\n  \"vehicleNumber\": \"XYZ-9999\",\n  \"licenseNumber\": \"DL-111222\"\n}"
+            },
+            "url": "{{baseUrl}}/api/driver/profile",
+            "description": "Upsert driver vehicle details (also set at registration)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 — Admin (role ADMIN)",
+      "item": [
+        {
+          "name": "GET /api/admin/users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/admin/users",
+            "description": "Use token from **03 — Login — admin**."
+          }
+        },
+        {
+          "name": "GET /api/admin/drivers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && Array.isArray(res.data) && res.data.length > 0) {",
+                  "  pm.collectionVariables.set('driverProfileId', res.data[0].driverProfileId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/admin/drivers",
+            "description": "Saves first `driverProfileId` to collection variable for approve/reject."
+          }
+        },
+        {
+          "name": "PUT /api/admin/drivers/{id}/approve",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/admin/drivers/{{driverProfileId}}/approve"
+          }
+        },
+        {
+          "name": "PUT /api/admin/drivers/{id}/reject",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/admin/drivers/{{driverProfileId}}/reject"
+          }
+        }
+      ]
+    }
+  ]
+}

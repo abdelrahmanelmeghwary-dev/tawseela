@@ -19,7 +19,7 @@ Content-Type: application/json
 
 {
   "mobileNumber": "+15550001111",
-  "otpCode": "000000",
+  "otpCode": "1234",
   "purpose": "REGISTER"
 }
 
@@ -42,7 +42,7 @@ Content-Type: application/json
 
 {
   "mobileNumber": "+15550001111",
-  "otpCode": "000000"
+  "otpCode": "1234"
 }
 
 ### Login
@@ -85,7 +85,7 @@ Content-Type: application/json
 
 {
   "mobileNumber": "+15550001111",
-  "otpCode": "000000"
+  "otpCode": "1234"
 }
 
 ### Forgot password — reset (use resetToken from previous step)

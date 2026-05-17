@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 public class OtpService {
@@ -34,7 +35,7 @@ public class OtpService {
     @Transactional
     public String createAndPersistOtp(User user, OtpPurpose purpose) {
         expirePreviousPending(user.getId(), purpose);
-        String code = String.format("%06d", random.nextInt(1_000_000));
+        String code = resolveOtpCode();
         OtpEntity otp = new OtpEntity();
         otp.setUser(user);
         otp.setOtpCode(code);
@@ -49,6 +50,14 @@ public class OtpService {
             log.info("OTP issued for {} purpose {}", user.getMobileNumber(), purpose);
         }
         return code;
+    }
+
+    private String resolveOtpCode() {
+        String fixed = props.getOtp().getFixedCode();
+        if (StringUtils.hasText(fixed)) {
+            return fixed.trim();
+        }
+        return String.format("%06d", random.nextInt(1_000_000));
     }
 
     private void expirePreviousPending(java.util.UUID userId, OtpPurpose purpose) {
