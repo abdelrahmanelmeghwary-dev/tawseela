@@ -40,3 +40,24 @@ Option B — SQL + Maven Flyway: run sql/reset_public.sql, then migrate.
 Option C — Maven Flyway only (drops Flyway-managed objects, then migrate):
 
   .\mvnw.cmd flyway:clean flyway:migrate "-Dflyway.url=..." "-Dflyway.user=..." "-Dflyway.password=..."
+
+
+Production: "relation profiles already exists" (Flyway at V3)
+=============================================================
+
+Happens when delivery tables were created outside Flyway (legacy Supabase/manual SQL)
+while flyway_schema_history is still at V3.
+
+Fix: deploy the latest app (V4–V8 migrations are idempotent: CREATE IF NOT EXISTS).
+
+If a migration still fails after deploy, inspect:
+
+  SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;
+
+Then either repair checksums (only if file content matches what ran):
+
+  flyway repair
+
+or baseline past existing objects (last resort; coordinate with ops):
+
+  flyway baseline -baselineVersion=8
