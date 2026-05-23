@@ -1,8 +1,8 @@
 package com.tawseela.repository;
 
 import com.tawseela.entity.OtpEntity;
-import com.tawseela.entity.OtpPurpose;
-import com.tawseela.entity.OtpStatus;
+import com.tawseela.enums.OtpPurpose;
+import com.tawseela.enums.OtpStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

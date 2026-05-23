@@ -2,8 +2,8 @@ package com.tawseela.service;
 
 import com.tawseela.config.TawseelaProperties;
 import com.tawseela.entity.OtpEntity;
-import com.tawseela.entity.OtpPurpose;
-import com.tawseela.entity.OtpStatus;
+import com.tawseela.enums.OtpPurpose;
+import com.tawseela.enums.OtpStatus;
 import com.tawseela.entity.User;
 import com.tawseela.exception.BusinessException;
 import com.tawseela.repository.OtpRepository;

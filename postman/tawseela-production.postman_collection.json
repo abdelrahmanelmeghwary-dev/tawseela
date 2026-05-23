@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "tawseela-api-full-v2",
     "name": "Tawseela API — full (Railway)",
-    "description": "Production base: `https://tawseela-production.up.railway.app`\n\n**Suggested order**\n1. **01 — Register (Customer)** → then **03 — Login**\n2. **02 — Register (Driver)** → verify → admin approves in **08 — Admin**\n3. **05 — Forgot password** (alternate path)\n4. **04 — OTP (public)** optional resend/verify by purpose\n5. **06 / 07 / 08** — use `accessToken` from login (role must match)\n\n**OTP:** fixed `1234` while `tawseela.otp.fixed-code` is set.\n\n**Variables:** set `mobileNumber` / `driverMobileNumber`; after Login, `accessToken` and `refreshToken` are saved automatically.",
+    "description": "Production base: `https://tawseela-production.up.railway.app` (local: `http://localhost:8099`)\n\n**Suggested order**\n1. **01 — Register (Customer)** → then **03 — Login**\n2. **02 — Register (Driver)** → verify → admin approves in **08 — Admin**\n3. **09 — Delivery v1** — profiles, drivers runtime, orders, notifications\n4. **05 — Forgot password** (alternate path)\n5. **04 — OTP (public)** optional resend/verify by purpose\n6. **GET /api/auth/me** — current user (all roles)\n7. **08 — Admin**\n8. **10 — API docs** — Swagger UI / OpenAPI JSON (public)\n\n**OTP:** fixed `1234` while `tawseela.otp.fixed-code` is set.\n\n**Variables:** `accessToken` from login; v1 saves `orderId`, `profileId`, `driverUserId`, `notificationId` from responses.\n\n**Cron / service:** `X-Cron-Secret`, `X-Service-Secret` (see collection variables).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -16,7 +16,14 @@
     { "key": "accessToken", "value": "" },
     { "key": "refreshToken", "value": "" },
     { "key": "resetToken", "value": "" },
-    { "key": "driverProfileId", "value": "" }
+    { "key": "driverProfileId", "value": "" },
+    { "key": "profileId", "value": "" },
+    { "key": "driverUserId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "notificationId", "value": "" },
+    { "key": "cronSecret", "value": "change-me-cron-secret" },
+    { "key": "serviceSecret", "value": "change-me-service-secret" },
+    { "key": "metricsDate", "value": "2026-05-23" }
   ],
   "item": [
     {
@@ -169,6 +176,34 @@
           }
         },
         {
+          "name": "2b. Login — driver",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', res.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"{{driverMobileNumber}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Driver must be OTP-verified and admin-approved."
+          }
+        },
+        {
           "name": "3. Refresh token",
           "event": [
             {
@@ -209,6 +244,45 @@
             },
             "url": "{{baseUrl}}/api/auth/logout",
             "description": "Requires Bearer access token + refresh token in body."
+          }
+        },
+        {
+          "name": "5. GET /api/auth/me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.userId) {",
+                  "  pm.collectionVariables.set('profileId', res.data.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "Unified current-user endpoint for all roles. Auto-provisions delivery profile if missing. Saves `profileId` (userId)."
+          }
+        },
+        {
+          "name": "6. PATCH /api/auth/me/driver-profile (driver)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleType\": \"SUV\",\n  \"vehicleNumber\": \"XYZ-9999\",\n  \"licenseNumber\": \"DL-111222\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/me/driver-profile",
+            "description": "Update driver vehicle details. Requires DRIVER role and approved login token."
           }
         }
       ]
@@ -376,49 +450,6 @@
       ]
     },
     {
-      "name": "06 — Customer (role CUSTOMER)",
-      "item": [
-        {
-          "name": "GET /api/customer/me",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/api/customer/me",
-            "description": "Run **03 — Login** with customer mobile first."
-          }
-        }
-      ]
-    },
-    {
-      "name": "07 — Driver (role DRIVER)",
-      "item": [
-        {
-          "name": "GET /api/driver/me",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": "{{baseUrl}}/api/driver/me"
-          }
-        },
-        {
-          "name": "POST /api/driver/profile",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"vehicleType\": \"SUV\",\n  \"vehicleNumber\": \"XYZ-9999\",\n  \"licenseNumber\": \"DL-111222\"\n}"
-            },
-            "url": "{{baseUrl}}/api/driver/profile",
-            "description": "Upsert driver vehicle details (also set at registration)."
-          }
-        }
-      ]
-    },
-    {
       "name": "08 — Admin (role ADMIN)",
       "item": [
         {
@@ -467,6 +498,598 @@
             "method": "PUT",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
             "url": "{{baseUrl}}/api/admin/drivers/{{driverProfileId}}/reject"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 — Delivery API v1",
+      "description": "Requires JWT from **03 — Login** (role must match each request). Run admin login before assign order; driver login before accept flow.",
+      "item": [
+        {
+          "name": "Profiles",
+          "item": [
+            {
+              "name": "GET /api/v1/profiles (admin)",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/profiles?role=CUSTOMER&page=0&size=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "profiles"],
+                  "query": [
+                    { "key": "role", "value": "CUSTOMER" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" }
+                  ]
+                },
+                "description": "Admin only. Optional `role`: CUSTOMER, DRIVER, ADMIN."
+              }
+            },
+            {
+              "name": "GET /api/v1/profiles (admin) — DRIVER",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/profiles?role=DRIVER&page=0&size=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "profiles"],
+                  "query": [
+                    { "key": "role", "value": "DRIVER" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/profiles/{id}",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/profiles/{{profileId}}"
+              }
+            },
+            {
+              "name": "POST /api/v1/profiles",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fullName\": \"Ada Customer\",\n  \"phone\": \"{{mobileNumber}}\"\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/profiles",
+                "description": "409 if profile already exists (V4 backfill or /auth/me)."
+              }
+            },
+            {
+              "name": "PATCH /api/v1/profiles/{id} — FCM token",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fcmToken\": \"test-fcm-device-token\",\n  \"fullName\": \"Ada Customer\"\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/profiles/{{profileId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Drivers (runtime)",
+          "item": [
+            {
+              "name": "POST /api/v1/drivers",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.id) {",
+                      "  pm.collectionVariables.set('driverUserId', res.data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/drivers",
+                "description": "Driver role. Creates `drivers` row (login as driver after admin approve)."
+              }
+            },
+            {
+              "name": "GET /api/v1/drivers",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/drivers?isOnline=true&page=0&size=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "drivers"],
+                  "query": [
+                    { "key": "isOnline", "value": "true" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/drivers/{id}",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/drivers/{{driverUserId}}"
+              }
+            },
+            {
+              "name": "PATCH /api/v1/drivers/{id} — go online",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"online\": true,\n  \"currentLat\": 36.737232,\n  \"currentLng\": 3.086472\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/drivers/{{driverUserId}}",
+                "description": "Own driver id only."
+              }
+            },
+            {
+              "name": "PATCH /api/v1/drivers/{id} — go offline",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"online\": false\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/drivers/{{driverUserId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders — Customer",
+          "item": [
+            {
+              "name": "POST /api/v1/orders",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.id) {",
+                      "  pm.collectionVariables.set('orderId', res.data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Buy medicine from pharmacy\",\n  \"deliveryLat\": 36.737232,\n  \"deliveryLng\": 3.086472,\n  \"deliveryAddress\": \"12 Rue Didouche Mourad, Alger\"\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/orders",
+                "description": "Customer role. Saves `orderId`."
+              }
+            },
+            {
+              "name": "GET /api/v1/orders",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/orders?page=0&size=20&sort=createdAt,desc",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "orders"],
+                  "query": [
+                    { "key": "status", "value": "CREATED", "disabled": true },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" },
+                    { "key": "sort", "value": "createdAt,desc" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/orders/{id}",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}"
+              }
+            },
+            {
+              "name": "GET /api/v1/orders/{orderId}/history",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/history"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders — Admin",
+          "item": [
+            {
+              "name": "GET /api/v1/orders (all)",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/orders?page=0&size=20&sort=createdAt,desc",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "orders"],
+                  "query": [
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" },
+                    { "key": "sort", "value": "createdAt,desc" }
+                  ]
+                },
+                "description": "Admin login. Optional filters: `status`, `customerId`, `driverId`."
+              }
+            },
+            {
+              "name": "GET /api/v1/orders — by status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/orders?status=CREATED&page=0&size=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "orders"],
+                  "query": [
+                    { "key": "status", "value": "CREATED" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/orders — by customerId",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/orders?customerId={{profileId}}&page=0&size=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "orders"],
+                  "query": [
+                    { "key": "customerId", "value": "{{profileId}}" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "GET /api/v1/orders — by driverId",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/orders?driverId={{driverUserId}}&page=0&size=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "orders"],
+                  "query": [
+                    { "key": "driverId", "value": "{{driverUserId}}" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/orders/{orderId}/status — ASSIGNED",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"newStatus\": \"ASSIGNED\",\n  \"driverId\": \"{{driverUserId}}\"\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status",
+                "description": "Admin login. `driverId` = user id from POST /api/v1/drivers."
+              }
+            },
+            {
+              "name": "POST /api/v1/orders/{orderId}/status — CANCELLED",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"newStatus\": \"CANCELLED\",\n  \"note\": \"admin cancelled\"\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status"
+              }
+            },
+            {
+              "name": "DELETE /api/v1/orders/{id}",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Orders — Driver",
+          "item": [
+            {
+              "name": "POST status — ACCEPTED",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"newStatus\": \"ACCEPTED\"\n}" },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status",
+                "description": "Driver login; must be assigned driver."
+              }
+            },
+            {
+              "name": "POST status — PURCHASING",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"newStatus\": \"PURCHASING\"\n}" },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status"
+              }
+            },
+            {
+              "name": "POST status — ON_THE_WAY",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"newStatus\": \"ON_THE_WAY\"\n}" },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status"
+              }
+            },
+            {
+              "name": "POST status — DELIVERED",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"newStatus\": \"DELIVERED\"\n}" },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status"
+              }
+            },
+            {
+              "name": "POST status — COMPLETED",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"newStatus\": \"COMPLETED\"\n}" },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status"
+              }
+            },
+            {
+              "name": "POST status — reject (ASSIGNED→CREATED)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"newStatus\": \"CREATED\",\n  \"note\": \"driver_rejected\"\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications",
+          "item": [
+            {
+              "name": "GET /api/v1/notifications",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/notifications?isRead=false&page=0&size=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "notifications"],
+                  "query": [
+                    { "key": "isRead", "value": "false" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "20" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "POST /api/v1/notifications (admin)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "if (res.success && res.data && res.data.id) {",
+                      "  pm.collectionVariables.set('notificationId', res.data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{profileId}}\",\n  \"title\": \"Test\",\n  \"body\": \"Hello from admin\",\n  \"data\": { \"orderId\": \"{{orderId}}\" }\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/notifications"
+              }
+            },
+            {
+              "name": "PATCH /api/v1/notifications/{id}",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"isRead\": true\n}" },
+                "url": "{{baseUrl}}/api/v1/notifications/{{notificationId}}"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Push",
+          "item": [
+            {
+              "name": "POST /api/v1/push/send (Bearer admin)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{profileId}}\",\n  \"title\": \"Order Update\",\n  \"body\": \"Test push from Postman\",\n  \"data\": { \"orderId\": \"{{orderId}}\" }\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/push/send",
+                "description": "Requires FCM config + profile fcmToken. May return success:false with reason."
+              }
+            },
+            {
+              "name": "POST /api/v1/push/send (X-Service-Secret)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-Service-Secret", "value": "{{serviceSecret}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{profileId}}\",\n  \"title\": \"Service push\",\n  \"body\": \"Internal push test\",\n  \"data\": { \"orderId\": \"{{orderId}}\" }\n}"
+                },
+                "url": "{{baseUrl}}/api/v1/push/send"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Metrics",
+          "item": [
+            {
+              "name": "GET /api/v1/metrics/daily",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/metrics/daily?date={{metricsDate}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "metrics", "daily"],
+                  "query": [{ "key": "date", "value": "{{metricsDate}}" }]
+                },
+                "description": "Admin only."
+              }
+            },
+            {
+              "name": "GET /api/v1/metrics/daily (today)",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/metrics/daily"
+              }
+            }
+          ]
+        },
+        {
+          "name": "System",
+          "item": [
+            {
+              "name": "POST /api/v1/system/expire-stale-assignments",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "X-Cron-Secret", "value": "{{cronSecret}}" }],
+                "url": "{{baseUrl}}/api/v1/system/expire-stale-assignments",
+                "description": "No JWT. Header `X-Cron-Secret` must match `tawseela.delivery.cron-secret`."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 — API docs (public)",
+      "description": "Springdoc OpenAPI — no JWT required.",
+      "item": [
+        {
+          "name": "GET /swagger-ui.html",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/swagger-ui.html"
+          }
+        },
+        {
+          "name": "GET /v3/api-docs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v3/api-docs"
           }
         }
       ]

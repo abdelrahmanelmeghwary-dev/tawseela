@@ -1,5 +1,6 @@
 package com.tawseela.entity;
 
+import com.tawseela.enums.SystemRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

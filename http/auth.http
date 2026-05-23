@@ -99,13 +99,20 @@ Content-Type: application/json
   "confirmPassword": "N3w!Str0ng"
 }
 
-### Customer area
-GET {{base}}/api/customer/me
+### Current user (all roles)
+GET {{base}}/api/auth/me
 Authorization: Bearer PASTE_ACCESS_TOKEN
 
-### Driver area
-GET {{base}}/api/driver/me
+### Update driver vehicle profile
+PATCH {{base}}/api/auth/me/driver-profile
 Authorization: Bearer PASTE_ACCESS_TOKEN
+Content-Type: application/json
+
+{
+  "vehicleType": "SUV",
+  "vehicleNumber": "XYZ-9999",
+  "licenseNumber": "DL-111222"
+}
 
 ### Admin (default mobile admin — set TAWSEELA_ADMIN_DEFAULT_PASSWORD in prod)
 GET {{base}}/api/admin/users

@@ -35,7 +35,6 @@ public class User {
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
-    
     @Column(name = "mobile_number", nullable = false, unique = true, length = 64)
     private String mobileNumber;
 

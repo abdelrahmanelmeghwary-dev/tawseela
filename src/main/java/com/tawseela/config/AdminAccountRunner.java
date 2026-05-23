@@ -1,7 +1,7 @@
 package com.tawseela.config;
 
 import com.tawseela.entity.RoleEntity;
-import com.tawseela.entity.SystemRole;
+import com.tawseela.enums.SystemRole;
 import com.tawseela.entity.User;
 import com.tawseela.repository.RoleRepository;
 import com.tawseela.repository.UserRepository;

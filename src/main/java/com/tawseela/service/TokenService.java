@@ -1,7 +1,7 @@
 package com.tawseela.service;
 
 import com.tawseela.config.TawseelaProperties;
-import com.tawseela.dto.AuthTokensResponse;
+import com.tawseela.dto.response.AuthTokensResponse;
 import com.tawseela.entity.RefreshToken;
 import com.tawseela.entity.RoleEntity;
 import com.tawseela.entity.User;
@@ -113,6 +113,6 @@ public class TokenService {
                 refresh,
                 "Bearer",
                 expiresInSeconds,
-                userMapper.toUserInfo(user));
+                userMapper.toAuthMe(user));
     }
 }

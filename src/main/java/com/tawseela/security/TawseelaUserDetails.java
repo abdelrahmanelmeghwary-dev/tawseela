@@ -1,7 +1,7 @@
 package com.tawseela.security;
 
 import com.tawseela.entity.RoleEntity;
-import com.tawseela.entity.SystemRole;
+import com.tawseela.enums.SystemRole;
 import com.tawseela.entity.User;
 import java.util.Collection;
 import java.util.stream.Collectors;

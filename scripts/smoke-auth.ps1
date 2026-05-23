@@ -24,12 +24,8 @@ $access = $tokens.accessToken
 $refresh = $tokens.refreshToken
 if (-not $access) { throw "No accessToken in response (expected ApiResponse wrapper with data)" }
 
-Write-Host "`n=== 2) Customer me (403 if not CUSTOMER) ===" -ForegroundColor Cyan
-try {
-    Invoke-RestMethod -Uri "$BaseUrl/api/customer/me" -Method Get -Headers @{ Authorization = "Bearer $access" } | ConvertTo-Json
-} catch {
-    Write-Host "customer/me skipped or forbidden for this role" -ForegroundColor Yellow
-}
+Write-Host "`n=== 2) Auth me ===" -ForegroundColor Cyan
+Invoke-RestMethod -Uri "$BaseUrl/api/auth/me" -Method Get -Headers @{ Authorization = "Bearer $access" } | ConvertTo-Json
 
 Write-Host "`n=== 3) Admin users (403 if not ADMIN) ===" -ForegroundColor Cyan
 Invoke-RestMethod -Uri "$BaseUrl/api/admin/users" -Method Get -Headers @{ Authorization = "Bearer $access" } | ConvertTo-Json

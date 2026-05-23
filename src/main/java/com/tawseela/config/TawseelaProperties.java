@@ -13,6 +13,8 @@ public class TawseelaProperties {
     private Otp otp = new Otp();
     private Sms sms = new Sms();
     private AdminBootstrap adminBootstrap = new AdminBootstrap();
+    private Delivery delivery = new Delivery();
+    private Fcm fcm = new Fcm();
 
     public Jwt getJwt() {
         return jwt;
@@ -44,6 +46,22 @@ public class TawseelaProperties {
 
     public void setAdminBootstrap(AdminBootstrap adminBootstrap) {
         this.adminBootstrap = adminBootstrap != null ? adminBootstrap : new AdminBootstrap();
+    }
+
+    public Delivery getDelivery() {
+        return delivery;
+    }
+
+    public void setDelivery(Delivery delivery) {
+        this.delivery = delivery != null ? delivery : new Delivery();
+    }
+
+    public Fcm getFcm() {
+        return fcm;
+    }
+
+    public void setFcm(Fcm fcm) {
+        this.fcm = fcm != null ? fcm : new Fcm();
     }
 
     @PostConstruct
@@ -189,6 +207,66 @@ public class TawseelaProperties {
             public void setMessagingServiceSid(String messagingServiceSid) {
                 this.messagingServiceSid = messagingServiceSid != null ? messagingServiceSid : "";
             }
+        }
+    }
+
+    public static class Delivery {
+        private String cronSecret = "change-me-cron-secret";
+        private String serviceSecret = "change-me-service-secret";
+        private int staleAssignmentSeconds = 30;
+        private long expireAssignmentsFixedDelayMs = 60_000L;
+
+        public String getCronSecret() {
+            return cronSecret;
+        }
+
+        public void setCronSecret(String cronSecret) {
+            this.cronSecret = cronSecret != null ? cronSecret : "";
+        }
+
+        public String getServiceSecret() {
+            return serviceSecret;
+        }
+
+        public void setServiceSecret(String serviceSecret) {
+            this.serviceSecret = serviceSecret != null ? serviceSecret : "";
+        }
+
+        public int getStaleAssignmentSeconds() {
+            return staleAssignmentSeconds;
+        }
+
+        public void setStaleAssignmentSeconds(int staleAssignmentSeconds) {
+            this.staleAssignmentSeconds = staleAssignmentSeconds;
+        }
+
+        public long getExpireAssignmentsFixedDelayMs() {
+            return expireAssignmentsFixedDelayMs;
+        }
+
+        public void setExpireAssignmentsFixedDelayMs(long expireAssignmentsFixedDelayMs) {
+            this.expireAssignmentsFixedDelayMs = expireAssignmentsFixedDelayMs;
+        }
+    }
+
+    public static class Fcm {
+        private String serviceAccountJson = "";
+        private String serverKey = "";
+
+        public String getServiceAccountJson() {
+            return serviceAccountJson;
+        }
+
+        public void setServiceAccountJson(String serviceAccountJson) {
+            this.serviceAccountJson = serviceAccountJson != null ? serviceAccountJson : "";
+        }
+
+        public String getServerKey() {
+            return serverKey;
+        }
+
+        public void setServerKey(String serverKey) {
+            this.serverKey = serverKey != null ? serverKey : "";
         }
     }
 

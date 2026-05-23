@@ -1,9 +1,11 @@
 package com.tawseela.config;
 
+import com.tawseela.security.CronSecretAuthFilter;
 import com.tawseela.security.CustomUserDetailsService;
 import com.tawseela.security.JwtAccessDeniedHandler;
 import com.tawseela.security.JwtAuthenticationEntryPoint;
 import com.tawseela.security.JwtAuthenticationFilter;
+import com.tawseela.security.ServiceSecretAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -30,14 +32,20 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CronSecretAuthFilter cronSecretAuthFilter;
+    private final ServiceSecretAuthFilter serviceSecretAuthFilter;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final JwtAccessDeniedHandler accessDeniedHandler;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            CronSecretAuthFilter cronSecretAuthFilter,
+            ServiceSecretAuthFilter serviceSecretAuthFilter,
             JwtAuthenticationEntryPoint authenticationEntryPoint,
             JwtAccessDeniedHandler accessDeniedHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.cronSecretAuthFilter = cronSecretAuthFilter;
+        this.serviceSecretAuthFilter = serviceSecretAuthFilter;
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
     }
@@ -77,22 +85,32 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/otp/send", "/api/auth/otp/verify")
                         .permitAll()
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/forgot-password/send-otp",
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/send-otp",
                                 "/api/auth/forgot-password/verify-otp",
                                 "/api/auth/forgot-password/reset")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/auth/me/**")
+                        .authenticated()
+                        .requestMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/swagger-resources/**")
+                        .permitAll()
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
-                        .requestMatchers("/api/driver/**")
-                        .hasRole("DRIVER")
-                        .requestMatchers("/api/customer/**")
-                        .hasRole("CUSTOMER")
+                        .requestMatchers("/api/v1/system/**")
+                        .hasRole("CRON")
+                        .requestMatchers("/api/v1/**")
+                        .authenticated()
                         .anyRequest()
                         .authenticated())
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
+                .addFilterBefore(cronSecretAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(serviceSecretAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

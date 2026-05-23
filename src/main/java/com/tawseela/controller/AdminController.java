@@ -1,9 +1,9 @@
 package com.tawseela.controller;
 
-import com.tawseela.admin.AdminService;
-import com.tawseela.dto.AdminDriverRowDto;
-import com.tawseela.dto.AdminUserRowDto;
-import com.tawseela.dto.ApiResponse;
+import com.tawseela.service.AdminService;
+import com.tawseela.dto.response.AdminDriverRowDto;
+import com.tawseela.dto.response.AdminUserRowDto;
+import com.tawseela.common.ApiResponse;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;

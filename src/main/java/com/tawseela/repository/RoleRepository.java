@@ -1,7 +1,7 @@
 package com.tawseela.repository;
 
 import com.tawseela.entity.RoleEntity;
-import com.tawseela.entity.SystemRole;
+import com.tawseela.enums.SystemRole;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 

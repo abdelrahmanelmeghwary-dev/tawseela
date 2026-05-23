@@ -1,5 +1,7 @@
 package com.tawseela.entity;
 
+import com.tawseela.enums.OtpPurpose;
+import com.tawseela.enums.OtpStatus;
 import java.time.Instant;
 import java.util.UUID;
 import jakarta.persistence.Column;
