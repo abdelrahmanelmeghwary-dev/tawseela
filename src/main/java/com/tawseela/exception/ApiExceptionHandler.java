@@ -60,6 +60,14 @@ public class ApiExceptionHandler {
                         ex.getReason() != null ? ex.getReason() : ex.getStatusCode().toString()));
     }
 
+    @ExceptionHandler(org.springframework.transaction.UnexpectedRollbackException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnexpectedRollback(
+            org.springframework.transaction.UnexpectedRollbackException ex) {
+        log.error("Transaction rolled back", ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail("Operation could not be completed; please retry"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception ex) {
         log.error("Unexpected error", ex);

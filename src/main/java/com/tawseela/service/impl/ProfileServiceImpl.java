@@ -89,9 +89,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .findByIdEagerRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        Profile profile = new Profile();
-        profile.setId(userId);
-        profile.setUser(user);
+        Profile profile = newProfileForUser(user);
         profile.setFullName(request.getFullName());
         profile.setPhone(request.getPhone());
         profile = profileRepository.save(profile);
@@ -123,14 +121,19 @@ public class ProfileServiceImpl implements ProfileService {
         User user = userRepository
                 .findByIdEagerRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        Profile profile = new Profile();
-        profile.setId(userId);
-        profile.setUser(user);
+        Profile profile = newProfileForUser(user);
         profile.setFullName(user.getFirstName() + " " + user.getLastName());
         profile.setPhone(user.getMobileNumber());
         profile.setRole(legacyRoleFor(user));
-        profile = profileRepository.save(profile);
+        profile = profileRepository.saveAndFlush(profile);
         log.info("Auto-provisioned profile userId={}", userId);
+        return profile;
+    }
+
+    /** @MapsId: set persisted user only; do not assign {@code id} manually. */
+    private static Profile newProfileForUser(User user) {
+        Profile profile = new Profile();
+        profile.setUser(user);
         return profile;
     }
 

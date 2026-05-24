@@ -166,6 +166,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPhoneVerified(true);
         userRepository.save(user);
         user = userRepository.findByIdEagerRoles(user.getId()).orElse(user);
+        profileService.ensureProfile(user.getId());
         if (RoleNames.hasRole(user, SystemRole.DRIVER)) {
             return new RegisterVerifyResponse(
                     null,
