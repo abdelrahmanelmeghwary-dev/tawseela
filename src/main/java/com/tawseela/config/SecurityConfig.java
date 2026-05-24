@@ -83,8 +83,6 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh-token")
                         .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/otp/send", "/api/auth/otp/verify")
-                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password/send-otp",
                                 "/api/auth/forgot-password/verify-otp",
                                 "/api/auth/forgot-password/reset")

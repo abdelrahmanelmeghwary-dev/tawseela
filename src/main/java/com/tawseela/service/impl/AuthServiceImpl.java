@@ -6,14 +6,11 @@ import com.tawseela.dto.request.ForgotPasswordResetRequest;
 import com.tawseela.dto.request.ForgotPasswordSendOtpRequest;
 import com.tawseela.dto.request.ForgotPasswordVerifyOtpRequest;
 import com.tawseela.dto.request.LoginRequest;
-import com.tawseela.dto.request.OtpSendPublicRequest;
-import com.tawseela.dto.request.OtpVerifyPublicRequest;
 import com.tawseela.dto.request.RegisterRequest;
 import com.tawseela.dto.request.RegisterVerifyRequest;
 import com.tawseela.dto.response.AuthMeResponse;
 import com.tawseela.dto.response.AuthTokensResponse;
 import com.tawseela.dto.response.ForgotPasswordVerifyResponse;
-import com.tawseela.dto.response.OtpVerifyApiResponse;
 import com.tawseela.dto.response.RegisterVerifyResponse;
 import com.tawseela.entity.DriverProfile;
 import com.tawseela.entity.OtpEntity;
@@ -228,76 +225,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void sendOtpPublic(OtpSendPublicRequest request) {
-        OtpPurpose purpose = OtpPurpose.valueOf(request.getPurpose().trim());
-        String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
-        if (mobile.isEmpty()) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
-        }
-        switch (purpose) {
-            case REGISTER -> {
-                User regUser = userRepository
-                        .findByMobileNumberEagerRoles(mobile)
-                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
-                if (regUser.isPhoneVerified()) {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "Mobile number is already verified");
-                }
-                sendSmsIfConfigured(mobile, otpService.createAndPersistOtp(regUser, OtpPurpose.REGISTER));
-            }
-            case FORGET_PASSWORD -> {
-                ForgotPasswordSendOtpRequest forgotReq = new ForgotPasswordSendOtpRequest();
-                forgotReq.setMobileNumber(request.getMobileNumber());
-                forgotSendOtp(forgotReq);
-            }
-            case LOGIN -> {
-                User loginUser = userRepository
-                        .findByMobileNumberEagerRoles(mobile)
-                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
-                if (!isLoginOtpAllowed(loginUser)) {
-                    throw new BusinessException(
-                            HttpStatus.FORBIDDEN, "Account cannot receive a login OTP in its current state");
-                }
-                sendSmsIfConfigured(mobile, otpService.createAndPersistOtp(loginUser, OtpPurpose.LOGIN));
-            }
-        }
-    }
-
-    @Override
-    @Transactional
-    public OtpVerifyApiResponse verifyOtpPublic(OtpVerifyPublicRequest request) {
-        OtpPurpose purpose = OtpPurpose.valueOf(request.getPurpose().trim());
-        OtpVerifyApiResponse body = new OtpVerifyApiResponse();
-        body.setPurpose(request.getPurpose().trim());
-        switch (purpose) {
-            case REGISTER -> {
-                RegisterVerifyRequest rv = new RegisterVerifyRequest();
-                rv.setMobileNumber(request.getMobileNumber());
-                rv.setOtpCode(request.getOtpCode());
-                body.setRegistration(verifyRegistration(rv));
-            }
-            case FORGET_PASSWORD -> {
-                ForgotPasswordVerifyOtpRequest fv = new ForgotPasswordVerifyOtpRequest();
-                fv.setMobileNumber(request.getMobileNumber());
-                fv.setOtpCode(request.getOtpCode());
-                body.setForgotPassword(forgotVerifyOtp(fv));
-            }
-            case LOGIN -> {
-                String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
-                if (mobile.isEmpty()) {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "Invalid mobile number");
-                }
-                User loginUser = userRepository
-                        .findByMobileNumberEagerRoles(mobile)
-                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"));
-                otpService.verifyCode(loginUser, OtpPurpose.LOGIN, request.getOtpCode());
-                body.setLoginOtpVerified(Boolean.TRUE);
-            }
-        }
-        return body;
-    }
-
-    @Override
-    @Transactional
     public void forgotSendOtp(ForgotPasswordSendOtpRequest request) {
         String mobile = PhoneNormalizer.normalize(request.getMobileNumber());
         if (mobile.isEmpty()) {
@@ -393,19 +320,6 @@ public class AuthServiceImpl implements AuthService {
         driverProfile.setLicenseNumber(request.getLicenseNumber().trim());
         driverProfileRepository.save(driverProfile);
         return getCurrentUser();
-    }
-
-    private boolean isLoginOtpAllowed(User user) {
-        if (!user.isPhoneVerified() || !user.isEnabled()) {
-            return false;
-        }
-        if (RoleNames.hasRole(user, SystemRole.DRIVER)) {
-            return driverProfileRepository
-                    .findByUser_Id(user.getId())
-                    .map(DriverProfile::isApproved)
-                    .orElse(false);
-        }
-        return true;
     }
 
     private void sendSmsIfConfigured(String mobile, String code) {

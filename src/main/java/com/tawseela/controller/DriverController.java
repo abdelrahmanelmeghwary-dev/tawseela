@@ -46,7 +46,11 @@ public class DriverController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('CUSTOMER','DRIVER','ADMIN')")
-    @Operation(summary = "Get driver by id")
+    @Operation(
+            summary = "Get driver by user id",
+            description =
+                    "Path id is the user's UUID (userId from admin driver list), not driverProfileId. "
+                            + "Runtime row is created automatically for approved drivers.")
     public ResponseEntity<ApiResponse<DriverResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(driverService.getById(id)));
     }

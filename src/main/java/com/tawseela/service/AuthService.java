@@ -5,15 +5,11 @@ import com.tawseela.dto.request.ForgotPasswordResetRequest;
 import com.tawseela.dto.request.ForgotPasswordSendOtpRequest;
 import com.tawseela.dto.request.ForgotPasswordVerifyOtpRequest;
 import com.tawseela.dto.request.LoginRequest;
-import com.tawseela.dto.request.LogoutRequest;
-import com.tawseela.dto.request.OtpSendPublicRequest;
-import com.tawseela.dto.request.OtpVerifyPublicRequest;
 import com.tawseela.dto.request.RegisterRequest;
 import com.tawseela.dto.request.RegisterVerifyRequest;
 import com.tawseela.dto.response.AuthMeResponse;
 import com.tawseela.dto.response.AuthTokensResponse;
 import com.tawseela.dto.response.ForgotPasswordVerifyResponse;
-import com.tawseela.dto.response.OtpVerifyApiResponse;
 import com.tawseela.dto.response.RegisterVerifyResponse;
 import java.util.UUID;
 
@@ -28,10 +24,6 @@ public interface AuthService {
     AuthTokensResponse refresh(String refreshToken);
 
     void logout(UUID userId, String refreshToken, String authorizationHeader);
-
-    void sendOtpPublic(OtpSendPublicRequest request);
-
-    OtpVerifyApiResponse verifyOtpPublic(OtpVerifyPublicRequest request);
 
     void forgotSendOtp(ForgotPasswordSendOtpRequest request);
 

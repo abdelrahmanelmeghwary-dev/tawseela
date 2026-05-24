@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "tawseela-api-full-v2",
     "name": "Tawseela API — full (Railway)",
-    "description": "Production base: `https://tawseela-production.up.railway.app` (local: `http://localhost:8099`)\n\n**Suggested order**\n1. **01 — Register (Customer)** → then **03 — Login**\n2. **02 — Register (Driver)** → verify → admin approves in **08 — Admin**\n3. **09 — Delivery v1** — profiles, drivers runtime, orders, notifications\n4. **05 — Forgot password** (alternate path)\n5. **04 — OTP (public)** optional resend/verify by purpose\n6. **GET /api/auth/me** — current user (all roles)\n7. **08 — Admin**\n8. **10 — API docs** — Swagger UI / OpenAPI JSON (public)\n\n**OTP:** fixed `1234` while `tawseela.otp.fixed-code` is set.\n\n**Variables:** `accessToken` from login; v1 saves `orderId`, `profileId`, `driverUserId`, `notificationId` from responses.\n\n**Cron / service:** `X-Cron-Secret`, `X-Service-Secret` (see collection variables).",
+    "description": "Production base: `https://tawseela-production.up.railway.app` (local: `http://localhost:8099`)\n\n**Suggested order**\n1. **01 — Register (Customer)** → then **03 — Login**\n2. **02 — Register (Driver)** → verify → admin approves in **08 — Admin**\n3. **09 — Delivery v1** — profiles, drivers runtime, orders, notifications\n4. **05 — Forgot password** (alternate path)\n5. **GET /api/auth/me** — current user (all roles)\n6. **08 — Admin**\n7. **10 — API docs** — Swagger UI / OpenAPI JSON (public)\n\n**OTP:** fixed `1234` while `tawseela.otp.fixed-code` is set.\n\n**Variables:** `accessToken` from login; v1 saves `orderId`, `profileId`, `driverUserId`, `notificationId` from responses.\n\n**Cron / service:** `X-Cron-Secret`, `X-Service-Secret` (see collection variables).\n\n**Request name format:** `METHOD /path — role` (`public` = no JWT; `authenticated` = any logged-in user; `CUSTOMER | DRIVER | ADMIN` = any of those roles; `CRON` / `SERVICE` = header secret, not JWT).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -30,7 +30,7 @@
       "name": "01 — Register (Customer)",
       "item": [
         {
-          "name": "1. Register — CUSTOMER",
+          "name": "POST /api/auth/register — public",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -43,7 +43,7 @@
           }
         },
         {
-          "name": "2. Register verify — CUSTOMER",
+          "name": "POST /api/auth/register/verify — public",
           "event": [
             {
               "listen": "test",
@@ -76,7 +76,7 @@
       "name": "02 — Register (Driver)",
       "item": [
         {
-          "name": "1. Register — DRIVER",
+          "name": "POST /api/auth/register — public",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -89,7 +89,7 @@
           }
         },
         {
-          "name": "2. Register verify — DRIVER",
+          "name": "POST /api/auth/register/verify — public",
           "event": [
             {
               "listen": "test",
@@ -121,7 +121,7 @@
       "name": "03 — Login & session",
       "item": [
         {
-          "name": "1. Login",
+          "name": "POST /api/auth/login — public",
           "event": [
             {
               "listen": "test",
@@ -149,7 +149,7 @@
           }
         },
         {
-          "name": "2. Login — admin",
+          "name": "POST /api/auth/login — public (ADMIN creds)",
           "event": [
             {
               "listen": "test",
@@ -176,7 +176,7 @@
           }
         },
         {
-          "name": "2b. Login — driver",
+          "name": "POST /api/auth/login — public (DRIVER creds)",
           "event": [
             {
               "listen": "test",
@@ -204,7 +204,7 @@
           }
         },
         {
-          "name": "3. Refresh token",
+          "name": "POST /api/auth/refresh-token — public",
           "event": [
             {
               "listen": "test",
@@ -231,7 +231,7 @@
           }
         },
         {
-          "name": "4. Logout",
+          "name": "POST /api/auth/logout — authenticated",
           "request": {
             "method": "POST",
             "header": [
@@ -247,7 +247,7 @@
           }
         },
         {
-          "name": "5. GET /api/auth/me",
+          "name": "GET /api/auth/me — authenticated",
           "event": [
             {
               "listen": "test",
@@ -270,7 +270,7 @@
           }
         },
         {
-          "name": "6. PATCH /api/auth/me/driver-profile (driver)",
+          "name": "PATCH /api/auth/me/driver-profile — DRIVER",
           "request": {
             "method": "PATCH",
             "header": [
@@ -288,117 +288,10 @@
       ]
     },
     {
-      "name": "04 — OTP (public)",
-      "item": [
-        {
-          "name": "OTP send — REGISTER",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"purpose\": \"REGISTER\"\n}"
-            },
-            "url": "{{baseUrl}}/api/auth/otp/send"
-          }
-        },
-        {
-          "name": "OTP send — LOGIN",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"purpose\": \"LOGIN\"\n}"
-            },
-            "url": "{{baseUrl}}/api/auth/otp/send"
-          }
-        },
-        {
-          "name": "OTP send — FORGET_PASSWORD",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"purpose\": \"FORGET_PASSWORD\"\n}"
-            },
-            "url": "{{baseUrl}}/api/auth/otp/send"
-          }
-        },
-        {
-          "name": "OTP verify — REGISTER",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const res = pm.response.json();",
-                  "if (res.success && res.data && res.data.registration && res.data.registration.tokens) {",
-                  "  pm.collectionVariables.set('accessToken', res.data.registration.tokens.accessToken);",
-                  "  pm.collectionVariables.set('refreshToken', res.data.registration.tokens.refreshToken);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\",\n  \"purpose\": \"REGISTER\"\n}"
-            },
-            "url": "{{baseUrl}}/api/auth/otp/verify"
-          }
-        },
-        {
-          "name": "OTP verify — LOGIN",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\",\n  \"purpose\": \"LOGIN\"\n}"
-            },
-            "url": "{{baseUrl}}/api/auth/otp/verify",
-            "description": "Sets `data.loginOtpVerified` when successful."
-          }
-        },
-        {
-          "name": "OTP verify — FORGET_PASSWORD",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const res = pm.response.json();",
-                  "if (res.success && res.data && res.data.forgotPassword && res.data.forgotPassword.resetToken) {",
-                  "  pm.collectionVariables.set('resetToken', res.data.forgotPassword.resetToken);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mobileNumber\": \"{{mobileNumber}}\",\n  \"otpCode\": \"{{otpCode}}\",\n  \"purpose\": \"FORGET_PASSWORD\"\n}"
-            },
-            "url": "{{baseUrl}}/api/auth/otp/verify"
-          }
-        }
-      ]
-    },
-    {
       "name": "05 — Forgot password",
       "item": [
         {
-          "name": "1. Send OTP",
+          "name": "POST /api/auth/forgot-password/send-otp — public",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -410,7 +303,7 @@
           }
         },
         {
-          "name": "2. Verify OTP",
+          "name": "POST /api/auth/forgot-password/verify-otp — public",
           "event": [
             {
               "listen": "test",
@@ -436,7 +329,7 @@
           }
         },
         {
-          "name": "3. Reset password",
+          "name": "POST /api/auth/forgot-password/reset — public",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -453,7 +346,7 @@
       "name": "08 — Admin (role ADMIN)",
       "item": [
         {
-          "name": "GET /api/admin/users",
+          "name": "GET /api/admin/users — ADMIN",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -462,7 +355,7 @@
           }
         },
         {
-          "name": "GET /api/admin/drivers",
+          "name": "GET /api/admin/drivers — ADMIN",
           "event": [
             {
               "listen": "test",
@@ -485,7 +378,7 @@
           }
         },
         {
-          "name": "PUT /api/admin/drivers/{id}/approve",
+          "name": "PUT /api/admin/drivers/{id}/approve — ADMIN",
           "request": {
             "method": "PUT",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -493,7 +386,7 @@
           }
         },
         {
-          "name": "PUT /api/admin/drivers/{id}/reject",
+          "name": "PUT /api/admin/drivers/{id}/reject — ADMIN",
           "request": {
             "method": "PUT",
             "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -510,7 +403,7 @@
           "name": "Profiles",
           "item": [
             {
-              "name": "GET /api/v1/profiles (admin)",
+              "name": "GET /api/v1/profiles — ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -528,7 +421,7 @@
               }
             },
             {
-              "name": "GET /api/v1/profiles (admin) — DRIVER",
+              "name": "GET /api/v1/profiles?role=DRIVER — ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -545,7 +438,7 @@
               }
             },
             {
-              "name": "GET /api/v1/profiles/{id}",
+              "name": "GET /api/v1/profiles/{id} — authenticated",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -553,7 +446,7 @@
               }
             },
             {
-              "name": "POST /api/v1/profiles",
+              "name": "POST /api/v1/profiles — authenticated",
               "request": {
                 "method": "POST",
                 "header": [
@@ -569,7 +462,7 @@
               }
             },
             {
-              "name": "PATCH /api/v1/profiles/{id} — FCM token",
+              "name": "PATCH /api/v1/profiles/{id} — authenticated",
               "request": {
                 "method": "PATCH",
                 "header": [
@@ -589,7 +482,7 @@
           "name": "Drivers (runtime)",
           "item": [
             {
-              "name": "POST /api/v1/drivers",
+              "name": "POST /api/v1/drivers — DRIVER",
               "event": [
                 {
                   "listen": "test",
@@ -612,7 +505,7 @@
               }
             },
             {
-              "name": "GET /api/v1/drivers",
+              "name": "GET /api/v1/drivers — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -629,7 +522,7 @@
               }
             },
             {
-              "name": "GET /api/v1/drivers/{id}",
+              "name": "GET /api/v1/drivers/{userId} — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -637,7 +530,7 @@
               }
             },
             {
-              "name": "PATCH /api/v1/drivers/{id} — go online",
+              "name": "PATCH /api/v1/drivers/{id} — DRIVER (online)",
               "request": {
                 "method": "PATCH",
                 "header": [
@@ -653,7 +546,7 @@
               }
             },
             {
-              "name": "PATCH /api/v1/drivers/{id} — go offline",
+              "name": "PATCH /api/v1/drivers/{id} — DRIVER (offline)",
               "request": {
                 "method": "PATCH",
                 "header": [
@@ -673,7 +566,7 @@
           "name": "Orders — Customer",
           "item": [
             {
-              "name": "POST /api/v1/orders",
+              "name": "POST /api/v1/orders — CUSTOMER",
               "event": [
                 {
                   "listen": "test",
@@ -703,7 +596,7 @@
               }
             },
             {
-              "name": "GET /api/v1/orders",
+              "name": "GET /api/v1/orders — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -721,7 +614,7 @@
               }
             },
             {
-              "name": "GET /api/v1/orders/{id}",
+              "name": "GET /api/v1/orders/{id} — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -729,7 +622,7 @@
               }
             },
             {
-              "name": "GET /api/v1/orders/{orderId}/history",
+              "name": "GET /api/v1/orders/{orderId}/history — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -742,7 +635,7 @@
           "name": "Orders — Admin",
           "item": [
             {
-              "name": "GET /api/v1/orders (all)",
+              "name": "GET /api/v1/orders (list) — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -760,7 +653,7 @@
               }
             },
             {
-              "name": "GET /api/v1/orders — by status",
+              "name": "GET /api/v1/orders?status — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -777,7 +670,7 @@
               }
             },
             {
-              "name": "GET /api/v1/orders — by customerId",
+              "name": "GET /api/v1/orders?customerId — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -794,7 +687,7 @@
               }
             },
             {
-              "name": "GET /api/v1/orders — by driverId",
+              "name": "GET /api/v1/orders?driverId — CUSTOMER | DRIVER | ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -811,7 +704,7 @@
               }
             },
             {
-              "name": "POST /api/v1/orders/{orderId}/status — ASSIGNED",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (ADMIN, ASSIGNED)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -827,7 +720,7 @@
               }
             },
             {
-              "name": "POST /api/v1/orders/{orderId}/status — CANCELLED",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (ADMIN, CANCELLED)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -842,7 +735,7 @@
               }
             },
             {
-              "name": "DELETE /api/v1/orders/{id}",
+              "name": "DELETE /api/v1/orders/{id} — ADMIN",
               "request": {
                 "method": "DELETE",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -855,7 +748,7 @@
           "name": "Orders — Driver",
           "item": [
             {
-              "name": "POST status — ACCEPTED",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (DRIVER, ACCEPTED)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -868,7 +761,7 @@
               }
             },
             {
-              "name": "POST status — PURCHASING",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (DRIVER, PURCHASING)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -880,7 +773,7 @@
               }
             },
             {
-              "name": "POST status — ON_THE_WAY",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (DRIVER, ON_THE_WAY)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -892,7 +785,7 @@
               }
             },
             {
-              "name": "POST status — DELIVERED",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (DRIVER, DELIVERED)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -904,7 +797,7 @@
               }
             },
             {
-              "name": "POST status — COMPLETED",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (DRIVER, COMPLETED)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -916,7 +809,7 @@
               }
             },
             {
-              "name": "POST status — reject (ASSIGNED→CREATED)",
+              "name": "POST /api/v1/orders/{orderId}/status — authenticated (DRIVER, reject)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -936,7 +829,7 @@
           "name": "Notifications",
           "item": [
             {
-              "name": "GET /api/v1/notifications",
+              "name": "GET /api/v1/notifications — authenticated",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -953,7 +846,7 @@
               }
             },
             {
-              "name": "POST /api/v1/notifications (admin)",
+              "name": "POST /api/v1/notifications — ADMIN | SERVICE",
               "event": [
                 {
                   "listen": "test",
@@ -982,7 +875,7 @@
               }
             },
             {
-              "name": "PATCH /api/v1/notifications/{id}",
+              "name": "PATCH /api/v1/notifications/{id} — authenticated",
               "request": {
                 "method": "PATCH",
                 "header": [
@@ -999,7 +892,7 @@
           "name": "Push",
           "item": [
             {
-              "name": "POST /api/v1/push/send (Bearer admin)",
+              "name": "POST /api/v1/push/send — ADMIN | SERVICE",
               "request": {
                 "method": "POST",
                 "header": [
@@ -1015,7 +908,7 @@
               }
             },
             {
-              "name": "POST /api/v1/push/send (X-Service-Secret)",
+              "name": "POST /api/v1/push/send — SERVICE (X-Service-Secret)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -1035,7 +928,7 @@
           "name": "Metrics",
           "item": [
             {
-              "name": "GET /api/v1/metrics/daily",
+              "name": "GET /api/v1/metrics/daily — ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -1049,7 +942,7 @@
               }
             },
             {
-              "name": "GET /api/v1/metrics/daily (today)",
+              "name": "GET /api/v1/metrics/daily (no date) — ADMIN",
               "request": {
                 "method": "GET",
                 "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
@@ -1062,7 +955,7 @@
           "name": "System",
           "item": [
             {
-              "name": "POST /api/v1/system/expire-stale-assignments",
+              "name": "POST /api/v1/system/expire-stale-assignments — CRON (X-Cron-Secret)",
               "request": {
                 "method": "POST",
                 "header": [{ "key": "X-Cron-Secret", "value": "{{cronSecret}}" }],
@@ -1079,14 +972,14 @@
       "description": "Springdoc OpenAPI — no JWT required.",
       "item": [
         {
-          "name": "GET /swagger-ui.html",
+          "name": "GET /swagger-ui.html — public",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/swagger-ui.html"
           }
         },
         {
-          "name": "GET /v3/api-docs",
+          "name": "GET /v3/api-docs — public",
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/v3/api-docs"

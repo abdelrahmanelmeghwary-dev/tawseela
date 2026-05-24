@@ -1,4 +1,4 @@
-package com.tawseela.service.impl;
+﻿package com.tawseela.service.impl;
 
 import com.tawseela.dto.response.AdminDriverRowDto;
 import com.tawseela.dto.response.AdminUserRowDto;
@@ -9,6 +9,7 @@ import com.tawseela.exception.BusinessException;
 import com.tawseela.repository.DriverProfileRepository;
 import com.tawseela.repository.UserRepository;
 import com.tawseela.service.AdminService;
+import com.tawseela.service.DriverRuntimeService;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -21,10 +22,15 @@ public class AdminServiceImpl implements AdminService {
 
     private final UserRepository userRepository;
     private final DriverProfileRepository driverProfileRepository;
+    private final DriverRuntimeService driverRuntimeService;
 
-    public AdminServiceImpl(UserRepository userRepository, DriverProfileRepository driverProfileRepository) {
+    public AdminServiceImpl(
+            UserRepository userRepository,
+            DriverProfileRepository driverProfileRepository,
+            DriverRuntimeService driverRuntimeService) {
         this.userRepository = userRepository;
         this.driverProfileRepository = driverProfileRepository;
+        this.driverRuntimeService = driverRuntimeService;
     }
 
     @Transactional(readOnly = true)
@@ -47,6 +53,7 @@ public class AdminServiceImpl implements AdminService {
         user.setEnabled(true);
         driverProfileRepository.save(dp);
         userRepository.save(user);
+        driverRuntimeService.ensureForUserId(user.getId());
         return toDriverRow(dp);
     }
 

@@ -4,25 +4,6 @@
 
 @base = http://localhost:8099
 
-### Resend / issue OTP by purpose (REGISTER = not yet phone-verified, FORGET_PASSWORD, LOGIN = MFA-style check)
-POST {{base}}/api/auth/otp/send
-Content-Type: application/json
-
-{
-  "mobileNumber": "+15550001111",
-  "purpose": "REGISTER"
-}
-
-### Verify OTP by purpose (REGISTER mirrors register/verify; FORGET_PASSWORD returns resetToken; LOGIN sets loginOtpVerified)
-POST {{base}}/api/auth/otp/verify
-Content-Type: application/json
-
-{
-  "mobileNumber": "+15550001111",
-  "otpCode": "1234",
-  "purpose": "REGISTER"
-}
-
 ### Register (CUSTOMER or DRIVER). DRIVER requires vehicleType, vehicleNumber, licenseNumber.
 POST {{base}}/api/auth/register
 Content-Type: application/json

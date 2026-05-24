@@ -10,9 +10,6 @@ import com.tawseela.dto.response.AuthTokensResponse;
 import com.tawseela.dto.response.ForgotPasswordVerifyResponse;
 import com.tawseela.dto.request.LoginRequest;
 import com.tawseela.dto.request.LogoutRequest;
-import com.tawseela.dto.request.OtpSendPublicRequest;
-import com.tawseela.dto.response.OtpVerifyApiResponse;
-import com.tawseela.dto.request.OtpVerifyPublicRequest;
 import com.tawseela.dto.request.RefreshTokenRequest;
 import com.tawseela.dto.request.RegisterRequest;
 import com.tawseela.dto.request.RegisterVerifyRequest;
@@ -83,17 +80,6 @@ public class AuthController {
     @PostMapping("/refresh-token")
     public ResponseEntity<ApiResponse<AuthTokensResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(authService.refresh(request.getRefreshToken())));
-    }
-
-    @PostMapping("/otp/send")
-    public ResponseEntity<ApiResponse<Void>> otpSend(@Valid @RequestBody OtpSendPublicRequest request) {
-        authService.sendOtpPublic(request);
-        return ResponseEntity.ok(ApiResponse.ok("OTP sent", null));
-    }
-
-    @PostMapping("/otp/verify")
-    public ResponseEntity<ApiResponse<OtpVerifyApiResponse>> otpVerify(@Valid @RequestBody OtpVerifyPublicRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(authService.verifyOtpPublic(request)));
     }
 
     @PostMapping("/logout")
