@@ -32,9 +32,10 @@ WHERE d.ctid NOT IN (
     ORDER BY d2.id, d2.created_at DESC NULLS LAST
 );
 
--- Sync runtime rows for all approved drivers (idempotent).
+-- Sync runtime rows for all approved drivers with a valid user (idempotent).
 INSERT INTO drivers (id, is_online, total_deliveries, created_at, updated_at)
 SELECT dp.user_id, FALSE, 0, NOW(), NOW()
 FROM driver_profiles dp
+INNER JOIN users u ON u.id = dp.user_id
 WHERE dp.approved = TRUE
   AND NOT EXISTS (SELECT 1 FROM drivers dr WHERE dr.id = dp.user_id);
