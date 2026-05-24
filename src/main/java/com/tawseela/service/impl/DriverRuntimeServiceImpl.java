@@ -8,6 +8,7 @@ import com.tawseela.repository.DriverProfileRepository;
 import com.tawseela.repository.DriverRepository;
 import com.tawseela.repository.UserRepository;
 import com.tawseela.service.DriverRuntimeService;
+import com.tawseela.service.ProfileService;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,14 +24,17 @@ public class DriverRuntimeServiceImpl implements DriverRuntimeService {
     private final DriverRepository driverRepository;
     private final DriverProfileRepository driverProfileRepository;
     private final UserRepository userRepository;
+    private final ProfileService profileService;
 
     public DriverRuntimeServiceImpl(
             DriverRepository driverRepository,
             DriverProfileRepository driverProfileRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ProfileService profileService) {
         this.driverRepository = driverRepository;
         this.driverProfileRepository = driverProfileRepository;
         this.userRepository = userRepository;
+        this.profileService = profileService;
     }
 
     @Override
@@ -49,6 +53,9 @@ public class DriverRuntimeServiceImpl implements DriverRuntimeService {
         User user = userRepository
                 .findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Legacy DBs may reference profiles(id) from drivers(id); ensure delivery profile exists.
+        profileService.ensureProfile(userId);
 
         Driver driver = new Driver();
         driver.setId(userId);
