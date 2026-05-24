@@ -10,4 +10,7 @@ import java.util.UUID;
 public interface DriverRuntimeService {
 
     Driver ensureForUserId(UUID userId);
+
+    /** Called right after admin approval (approved flag may not be visible to a new query yet). */
+    Driver ensureAfterApproval(UUID userId);
 }

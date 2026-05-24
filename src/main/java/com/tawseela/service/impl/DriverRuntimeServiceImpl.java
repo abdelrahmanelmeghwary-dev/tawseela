@@ -40,21 +40,28 @@ public class DriverRuntimeServiceImpl implements DriverRuntimeService {
     @Override
     @Transactional
     public Driver ensureForUserId(UUID userId) {
-        return driverRepository.findById(userId).orElseGet(() -> provisionApprovedDriver(userId));
+        return driverRepository.findById(userId).orElseGet(() -> provisionRuntimeDriver(userId, true));
     }
 
-    private Driver provisionApprovedDriver(UUID userId) {
+    @Override
+    @Transactional
+    public Driver ensureAfterApproval(UUID userId) {
+        return driverRepository.findById(userId).orElseGet(() -> provisionRuntimeDriver(userId, false));
+    }
+
+    private Driver provisionRuntimeDriver(UUID userId, boolean requireApproved) {
         DriverProfile driverProfile = driverProfileRepository
                 .findByUser_Id(userId)
-                .filter(DriverProfile::isApproved)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Driver not found. Use the user id (not driverProfileId). "
-                                + "The driver must be approved and have a runtime profile."));
+                .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found for user"));
+        if (requireApproved && !driverProfile.isApproved()) {
+            throw new ResourceNotFoundException(
+                    "Driver not found. Use the user id (not driverProfileId). "
+                            + "The driver must be approved and have a runtime profile.");
+        }
         User user = userRepository
                 .findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Legacy DBs may reference profiles(id) from drivers(id); ensure delivery profile exists.
         profileService.ensureProfile(userId);
 
         Driver driver = new Driver();
@@ -71,6 +78,7 @@ public class DriverRuntimeServiceImpl implements DriverRuntimeService {
         try {
             return driverRepository.save(driver);
         } catch (DataIntegrityViolationException ex) {
+            log.warn("Driver runtime row insert conflict userId={}, re-loading", driver.getId());
             return driverRepository
                     .findById(driver.getId())
                     .orElseThrow(() -> ex);

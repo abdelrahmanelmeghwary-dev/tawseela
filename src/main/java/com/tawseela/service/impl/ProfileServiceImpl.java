@@ -15,6 +15,7 @@ import com.tawseela.exception.ResourceNotFoundException;
 import com.tawseela.exception.UnauthorizedActionException;
 import com.tawseela.repository.UserRepository;
 import com.tawseela.security.SecurityUtils;
+import com.tawseela.util.RoleNames;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,9 +128,20 @@ public class ProfileServiceImpl implements ProfileService {
         profile.setUser(user);
         profile.setFullName(user.getFirstName() + " " + user.getLastName());
         profile.setPhone(user.getMobileNumber());
+        profile.setRole(legacyRoleFor(user));
         profile = profileRepository.save(profile);
         log.info("Auto-provisioned profile userId={}", userId);
         return profile;
+    }
+
+    private static String legacyRoleFor(User user) {
+        if (RoleNames.hasRole(user, SystemRole.DRIVER)) {
+            return "driver";
+        }
+        if (RoleNames.hasRole(user, SystemRole.ADMIN)) {
+            return "admin";
+        }
+        return "customer";
     }
 
     private Profile loadAccessible(UUID id) {

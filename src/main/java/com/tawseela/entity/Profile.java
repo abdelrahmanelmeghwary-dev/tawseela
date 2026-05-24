@@ -42,4 +42,8 @@ public class Profile extends BaseEntity {
 
     @Column(name = "avatar_url", length = 512)
     private String avatarUrl;
+
+    /** Legacy Supabase column; nullable on fresh schemas (see V11). */
+    @Column(name = "role", length = 32)
+    private String role;
 }

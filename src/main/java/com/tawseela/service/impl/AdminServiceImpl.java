@@ -1,4 +1,4 @@
-package com.tawseela.service.impl;
+﻿package com.tawseela.service.impl;
 
 import com.tawseela.dto.response.AdminDriverRowDto;
 import com.tawseela.dto.response.AdminUserRowDto;
@@ -13,12 +13,16 @@ import com.tawseela.service.DriverRuntimeService;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdminServiceImpl implements AdminService {
+
+    private static final Logger log = LoggerFactory.getLogger(AdminServiceImpl.class);
 
     private final UserRepository userRepository;
     private final DriverProfileRepository driverProfileRepository;
@@ -51,10 +55,16 @@ public class AdminServiceImpl implements AdminService {
         dp.setApproved(true);
         User user = dp.getUser();
         user.setEnabled(true);
-        driverProfileRepository.save(dp);
-        userRepository.save(user);
-        driverRuntimeService.ensureForUserId(user.getId());
-        return toDriverRow(dp);
+        driverProfileRepository.saveAndFlush(dp);
+        userRepository.saveAndFlush(user);
+        try {
+            driverRuntimeService.ensureAfterApproval(user.getId());
+        } catch (RuntimeException ex) {
+            log.warn("Driver approved but runtime row was not created userId={}: {}", user.getId(), ex.getMessage());
+        }
+        return toDriverRow(driverProfileRepository
+                .findByIdWithUser(driverProfileId)
+                .orElse(dp));
     }
 
     @Transactional
