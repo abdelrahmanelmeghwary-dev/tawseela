@@ -11,8 +11,8 @@ import lombok.Value;
 @Builder
 public class OrderResponse {
     UUID id;
-    UUID customerId;
-    UUID driverId;
+    CustomerSummary customer;
+    DriverSummary driver;
     String description;
     BigDecimal deliveryLat;
     BigDecimal deliveryLng;
